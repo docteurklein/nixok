@@ -27,7 +27,7 @@
 
     configMaps = {
       nginx-config.data."nginx.conf" = ''
-        user nginx nginx;
+        user nobody nobody;
         daemon off;
         error_log /dev/stdout info;
         pid /dev/null;
