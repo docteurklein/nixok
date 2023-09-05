@@ -19,51 +19,106 @@
   outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, ... }:
     let systems = [ "x86_64-linux"]; in {
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
-      nginx = nixng.nglib.makeSystem {
+      phpweb = nixng.nglib.makeSystem {
         inherit system nixpkgs;
-        name = "nixng";
+        name = "phpweb";
         config = ({ pkgs, config, ... }: {
           dumb-init = {
             enable = true;
             type.services = { };
           };
-          init.services.nginx = {
+
+          init.services.apache2 = {
             shutdownOnExit = true;
             ensureSomething.link."documentRoot" = {
-              src = "${pkgs.apacheHttpd}/htdocs";
+              src = ./modules;
               dst = "/var/www";
             };
           };
-          services.nginx = {
+
+          services.php-fpm = {
+            pools = {
+              main = {
+                createUserGroup = false;
+                fpmSettings = {
+                  "pm" = "dynamic";
+                  "pm.max_children" = 75;
+                  "pm.start_servers" = 10;
+                  "pm.min_spare_servers" = 5;
+                  "pm.max_spare_servers" = 20;
+                  "pm.max_requests" = 500;
+                };
+              };
+            };
+          };
+
+          services.apache2 = {
             enable = true;
             envsubst = true;
             configuration = [
               {
-                daemon = "off";
-                worker_processes = 2;
-                user = "nginx";
+                LoadModule = [
+                  [ "mpm_event_module" "modules/mod_mpm_event.so" ]
+                  [ "log_config_module" "modules/mod_log_config.so" ]
+                  [ "unixd_module" "modules/mod_unixd.so" ]
+                  [ "authz_core_module" "modules/mod_authz_core.so" ]
+                  [ "dir_module" "modules/mod_dir.so" ]
+                  [ "mime_module" "modules/mod_mime.so" ]
+                  [ "proxy_module" "modules/mod_proxy.so" ]
+                  [ "proxy_fcgi_module" "modules/mod_proxy_fcgi.so" ]
+                ];
+              }
+              {
+                Listen = "0.0.0.0:80";
 
-                events."" = {
-                  use = "epoll";
-                  worker_connections = 128;
+                ServerRoot = "/var/www";
+                ServerName = "blowhole";
+                PidFile = "/httpd.pid";
+
+                DocumentRoot = "/var/www";
+
+                User = "www-data";
+                Group = "www-data";
+              }
+
+              {
+                ErrorLog = "/dev/stderr";
+                TransferLog = "/dev/stdout";
+
+                LogLevel = "info";
+              }
+
+              {
+                AddType = [
+                  [ "image/svg+xml" "svg" "svgz" ]
+                ];
+                AddEncoding = [ "gzip" "svgz" ];
+
+                TypesConfig = "${pkgs.apacheHttpd}/conf/mime.types";
+              }
+
+              {
+                Directory = {
+                  "/" = {
+                    Require = [ "all" "denied" ];
+                    Options = "SymlinksIfOwnerMatch";
+                  };
                 };
 
-                error_log = [ "/dev/stderr" "info" ];
-                pid = "/nginx.pid";
+                VirtualHost = {
+                  "*:80" = {
+                    ProxyPassMatch =
+                      [
+                        "^/(.*\.php(/.*)?)$"
+                        "unix:${config.services.php-fpm.pools.main.socket}|fcgi://localhost/var/www/"
+                      ];
 
-                http."" = {
-                  server_tokens = "off";
-                  include = "${pkgs.nginx}/conf/mime.types";
-                  charset = "utf-8";
-
-                  access_log = [ "/dev/stdout" "combined" ];
-
-                  server."" = {
-                    server_name = "localhost";
-                    listen = "0.0.0.0:80";
-
-                    location."/var/www" = {
-                      root = "html";
+                    Directory = {
+                      "/var/www" = {
+                        Require = [ "all" "granted" ];
+                        Options = [ "-Indexes" "+FollowSymlinks" ];
+                        DirectoryIndex = "\${DIRECTORY_INDEX:-index.html}";
+                      };
                     };
                   };
                 };
@@ -78,11 +133,11 @@
         nix2containerPkgs = nix2container.packages.${system};
         pkgs = nixpkgs.legacyPackages.${system};
       in {
-        nginx-image = nix2containerPkgs.nix2container.buildImage {
-          name = "docteurklein/nginx";
+        phpweb-image = nix2containerPkgs.nix2container.buildImage {
+          name = "docteurklein/phpweb";
           config = {
             StopSignal = "SIGCONT";
-            Entrypoint = [ "${self.nixngConfigurations.${system}.nginx.config.system.build.toplevel}/init" ];
+            Entrypoint = [ "${self.nixngConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             ExposedPorts = {
               "80/tcp" = {};
             };
@@ -102,14 +157,13 @@
           module = { kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
-              ./modules/nginx.nix
-              ./modules/php.nix
+              ./modules/phpweb.nix
+              # ./modules/php.nix
               # ./modules/mysql.nix
             ];
             docker = {
               registry.url = "docker.io";
-              images.nginx.image = self.packages.${system}.nginx-image;
-              images.php.image = self.packages.${system}.php-image;
+              images.phpweb.image = self.packages.${system}.phpweb-image;
             };
 
             kubenix.project = "test1";

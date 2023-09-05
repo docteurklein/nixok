@@ -2,22 +2,22 @@
   imports = [ kubenix.modules.k8s ];
 
   kubernetes.resources = {
-    deployments.nginx.spec = {
+    deployments.phpweb.spec = {
       replicas = 2;
-      selector.matchLabels.app = "nginx";
+      selector.matchLabels.app = "phpweb";
       template = {
-        metadata.labels.app = "nginx";
+        metadata.labels.app = "phpweb";
         spec = {
           securityContext.fsGroup = 1000;
-          containers.nginx = {
-            image = config.docker.images.nginx.path;
+          containers.phpweb = {
+            image = config.docker.images.phpweb.path;
             imagePullPolicy = "IfNotPresent";
           };
         };
       };
     };
-    services.nginx.spec = {
-      selector.app = "nginx";
+    services.phpweb.spec = {
+      selector.app = "phpweb";
       ports = [{
         name = "http";
         port = 80;
