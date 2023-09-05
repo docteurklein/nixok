@@ -1,111 +1,126 @@
 {
-  inputs.kubenix.url = "github:hall/kubenix";
-  inputs.kubenix.inputs.nixpkgs.follows = "nixpkgs";
-  inputs.nix2container.url = "github:nlewo/nix2container";
-  #inputs.nix2container.inputs.nixpkgs.follows = "nixpkgs";
-  inputs.flake-parts.url = "github:hercules-ci/flake-parts";
+  inputs.kubenix = {
+    url = "github:hall/kubenix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  inputs.nix2container = {
+    url = "github:nlewo/nix2container";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
   inputs.nixos-generators = {
     url = "github:nix-community/nixos-generators";
     inputs.nixpkgs.follows = "nixpkgs";
   };
+  inputs.microvm = {
+    url = "github:astro/microvm.nix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  inputs.nixng= {
+    url = "github:nix-community/NixNG";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = inputs@{self, nixpkgs, kubenix, nix2container, flake-parts, nixos-generators, ... }:
-    flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-
-      perSystem = { self', pkgs, system, config, ...}:
-        let
-          nix2containerPkgs = nix2container.packages.${system};
-          c = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            modules = [
-              ({ pkgs, config, lib, modulesPath, ... }: {
-
-                imports = [
-                  "${toString modulesPath}/virtualisation/docker-image.nix"
-                ];
-
-                boot.isContainer = true;
-                services.journald.console = "/dev/console";
-                nixos.useSystemd = true;
-                nixos.configuration.boot.tmpOnTmpfs = true;
-                nixos.configuration.services.nscd.enable = false;
-                nixos.configuration.system.nssModules = lib.mkForce [];
-                # nixos.configuration.systemd.services.nginx.serviceConfig.AmbientCapabilities =  lib.mkForce [
-                #   "CAP_NET_BIND_SERVICE"
-                # ];
-                service.useHostStore = true;
-
-                services.mysql.enable = true;
-                services.mysql.package = pkgs.mysql;
-                environment.systemPackages = with pkgs; [
-                  bashInteractive
-                  coreutils
-                  stdenv
-                  mysql
-                ];
-              })
-            ];
-          };
-        in {
-        packages = {
-          nginx-image = nix2containerPkgs.nix2container.buildImage {
-            name = "docteurklein/nginx";
-            copyToRoot = pkgs.buildEnv {
-              name = "root";
-              paths = with pkgs; [
-                c.config.system.build.toplevel
-                bashInteractive
-                coreutils
-                stdenv
-                mysql
-              ];
-              pathsToLink = [ "/bin" ];
-            };
-
-            config = {
-              Cmd = [ "${pkgs.bash}/bin/bash" ];
-              ExposedPorts = {
-                "80/tcp" = {};
-              };
-            };
-          };
-          php-image = nix2containerPkgs.nix2container.buildImage {
-            name = "docteurklein/php";
-            config = {
-              Cmd = [ "${pkgs.php}/bin/php-fpm" ];
-              ExposedPorts = {
-                "9000/tcp" = {};
-              };
-            };
-          };
-          manifest = (kubenix.evalModules.${system} {
-            module = { kubenix, config, ... }: {
+  outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, nixos-generators, microvm, ... }:
+    let systems = [ "x86_64-linux" "aarch64-linux"]; in {
+    nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
+      nginx = nixng.nglib.makeSystem {
+          inherit system;
+          modules = [
+            microvm.nixosModules.microvm
+            ({ pkgs, config, lib, modulesPath, ... }: {
               imports = [
-                kubenix.modules.docker
-                ./modules/nginx.nix
-                ./modules/php.nix
-                ./modules/mysql.nix
+                "${modulesPath}/profiles/minimal.nix"
               ];
-              docker = {
-                registry.url = "docker.io";
-                images.nginx.image = self'.packages.nginx-image;
-                images.php.image = self'.packages.php-image;
+              # nix.registry = {
+              #   nixpkgs.flake = nixpkgs;
+              #   self.flake = inputs.self;
+              # };
+              microvm = {
+                # hypervisor = "firecracker";
+                shares = [{
+                  # use "virtiofs" for MicroVMs that are started by systemd
+                  # proto = "9p";
+                  tag = "ro-store";
+                  # a host's /nix/store will be picked up so that the
+                  # size of the /dev/vda can be reduced.
+                  source = "/nix/store";
+                  mountPoint = "/nix/.ro-store";
+                }];
               };
+              # boot.initrd.enable = true;
+              # boot.modprobeConfig.enable = true;
+              # boot.isContainer = true;
+              # boot.postBootCommands = ''
+              #   # Set virtualisation to docker
+              #   echo "docker" > /run/systemd/container
+              # '';
 
-              kubenix.project = "test1";
-              kubernetes.version = "1.27";
-            };
-          }).config.kubernetes.result;
+              # Iptables do not work in Docker.
+              # networking.firewall.enable = false;
+
+              # Socket activated ssh presents problem in Docker.
+              # services.openssh.startWhenNeeded = false;
+              # boot.specialFileSystems = lib.mkForce {};
+              # boot.tmpOnTmpfs = true;
+              networking.hostName = "";
+              # services.journald.console = "/dev/console";
+              # systemd.services.systemd-logind.enable = false;
+              # systemd.services.console-getty.enable = false;
+              # systemd.sockets.nix-daemon.enable = lib.mkDefault false;
+              # systemd.services.nix-daemon.enable = lib.mkDefault false;
+
+              # services.nscd.enable = false;
+              # system.nssModules = lib.mkForce [];
+
+              services.nginx.enable = true;
+            })
+          ];
         };
-        devShells = {
-          default = pkgs.mkShell {
-            buildInputs = with pkgs; [ k3s kubectl skopeo phpactor ];
+    });
+    packages = nixpkgs.lib.genAttrs systems (system:
+      let
+        nix2containerPkgs = nix2container.packages.${system};
+        pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        nginx-image = nix2containerPkgs.nix2container.buildImage {
+          name = "docteurklein/nginx";
+          config = {
+            StopSignal = "SIGRTMIN+3";
+            Entrypoint = [ "${self.nixosConfigurations.${system}.nginx.config.system.build.toplevel}/init" ];
+            ExposedPorts = {
+              "80/tcp" = {};
+            };
+          };
+          maxLayers = 20;
+        };
+        php-image = nix2containerPkgs.nix2container.buildImage {
+          name = "docteurklein/php";
+          config = {
+            Cmd = [ "${pkgs.php}/bin/php-fpm" ];
+            ExposedPorts = {
+              "9000/tcp" = {};
+            };
           };
         };
-      };
-    };
+        manifest = (kubenix.evalModules.${system} {
+          module = { kubenix, config, ... }: {
+            imports = [
+              kubenix.modules.docker
+              ./modules/nginx.nix
+              ./modules/php.nix
+              # ./modules/mysql.nix
+            ];
+            docker = {
+              registry.url = "docker.io";
+              images.nginx.image = self.packages.${system}.nginx-image;
+              images.php.image = self.packages.${system}.php-image;
+            };
+
+            kubenix.project = "test1";
+            kubernetes.version = "1.27";
+          };
+        }).config.kubernetes.result;
+      }
+    );
+  };
 }

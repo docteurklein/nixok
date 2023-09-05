@@ -15,11 +15,26 @@
             volumeMounts = {
               "/etc/nginx".name = "config";
               "/var/lib/html".name = "static";
+              "/run".name = "tmp";
+              "/run/lock".name = "tmp";
+              "/tmp".name = "tmp";
+              "/sys/fs/group" = {
+                name = "cgroup";
+                readOnly = true;
+              };
             };
           };
           volumes = {
             config.configMap.name = "nginx-config";
             static.configMap.name = "nginx-static";
+            tmp.emptyDir = {
+              medium = "Memory";
+              sizeLimit = "64Mi";
+            };
+            cgroup.hostPath = {
+              path = "/sys/fs/cgroup";
+              type = "Directory";
+            };
           };
         };
       };

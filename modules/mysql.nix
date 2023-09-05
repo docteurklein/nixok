@@ -10,7 +10,7 @@
         spec = {
           #securityContext.fsGroup = 1000;
           containers.mysql = {
-            image = "mysql:latest";
+            image = config.docker.images.mysql.path;
             imagePullPolicy = "IfNotPresent";
           };
         };
