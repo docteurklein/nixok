@@ -7,76 +7,68 @@
     url = "github:nlewo/nix2container";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  inputs.nixos-generators = {
-    url = "github:nix-community/nixos-generators";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
-  inputs.microvm = {
-    url = "github:astro/microvm.nix";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
   inputs.nixng= {
     url = "github:nix-community/NixNG";
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, nixos-generators, microvm, ... }:
+  outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, ... }:
     let systems = [ "x86_64-linux" "aarch64-linux"]; in {
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
       nginx = nixng.nglib.makeSystem {
-          inherit system;
-          modules = [
-            microvm.nixosModules.microvm
-            ({ pkgs, config, lib, modulesPath, ... }: {
-              imports = [
-                "${modulesPath}/profiles/minimal.nix"
-              ];
-              # nix.registry = {
-              #   nixpkgs.flake = nixpkgs;
-              #   self.flake = inputs.self;
-              # };
-              microvm = {
-                # hypervisor = "firecracker";
-                shares = [{
-                  # use "virtiofs" for MicroVMs that are started by systemd
-                  # proto = "9p";
-                  tag = "ro-store";
-                  # a host's /nix/store will be picked up so that the
-                  # size of the /dev/vda can be reduced.
-                  source = "/nix/store";
-                  mountPoint = "/nix/.ro-store";
-                }];
+          inherit system nixpkgs;
+          name = "nixng";
+          config = ({ pkgs, config, ... }: {
+            dumb-init = {
+              enable = true;
+              type.services = { };
+            };
+            init.services.nginx = {
+              shutdownOnExit = true;
+              ensureSomething.link."documentRoot" = {
+                src = "${pkgs.apacheHttpd}/htdocs";
+                dst = "/var/www";
               };
-              # boot.initrd.enable = true;
-              # boot.modprobeConfig.enable = true;
-              # boot.isContainer = true;
-              # boot.postBootCommands = ''
-              #   # Set virtualisation to docker
-              #   echo "docker" > /run/systemd/container
-              # '';
+            };
+            services.nginx = {
+              enable = true;
+              envsubst = true;
+              configuration = [
+                {
+                  daemon = "off";
+                  worker_processes = 2;
+                  user = "nginx";
 
-              # Iptables do not work in Docker.
-              # networking.firewall.enable = false;
+                  events."" = {
+                    use = "epoll";
+                    worker_connections = 128;
+                  };
 
-              # Socket activated ssh presents problem in Docker.
-              # services.openssh.startWhenNeeded = false;
-              # boot.specialFileSystems = lib.mkForce {};
-              # boot.tmpOnTmpfs = true;
-              networking.hostName = "";
-              # services.journald.console = "/dev/console";
-              # systemd.services.systemd-logind.enable = false;
-              # systemd.services.console-getty.enable = false;
-              # systemd.sockets.nix-daemon.enable = lib.mkDefault false;
-              # systemd.services.nix-daemon.enable = lib.mkDefault false;
+                  error_log = [ "/dev/stderr" "info" ];
+                  pid = "/nginx.pid";
 
-              # services.nscd.enable = false;
-              # system.nssModules = lib.mkForce [];
+                  http."" = {
+                    server_tokens = "off";
+                    include = "${pkgs.nginx}/conf/mime.types";
+                    charset = "utf-8";
 
-              services.nginx.enable = true;
-            })
-          ];
+                    access_log = [ "/dev/stdout" "combined" ];
+
+                    server."" = {
+                      server_name = "localhost";
+                      listen = "0.0.0.0:80";
+
+                      location."/var/www" = {
+                        root = "html";
+                      };
+                    };
+                  };
+                }
+              ];
+            };
+          });
         };
-    });
+      });
     packages = nixpkgs.lib.genAttrs systems (system:
       let
         nix2containerPkgs = nix2container.packages.${system};
@@ -85,13 +77,13 @@
         nginx-image = nix2containerPkgs.nix2container.buildImage {
           name = "docteurklein/nginx";
           config = {
-            StopSignal = "SIGRTMIN+3";
-            Entrypoint = [ "${self.nixosConfigurations.${system}.nginx.config.system.build.toplevel}/init" ];
+            StopSignal = "SIGCONT";
+            Entrypoint = [ "${self.nixngConfigurations.${system}.nginx.config.system.build.toplevel}/init" ];
             ExposedPorts = {
               "80/tcp" = {};
             };
           };
-          maxLayers = 20;
+          maxLayers = 125;
         };
         php-image = nix2containerPkgs.nix2container.buildImage {
           name = "docteurklein/php";
