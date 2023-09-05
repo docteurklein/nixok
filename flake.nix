@@ -11,64 +11,68 @@
     url = "github:nix-community/NixNG";
     inputs.nixpkgs.follows = "nixpkgs";
   };
+  inputs.systemFile = {
+    url="path:./systems";
+    flake=false;
+  };
 
   outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, ... }:
-    let systems = [ "x86_64-linux" "aarch64-linux"]; in {
+    let systems = [ "x86_64-linux"]; in {
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
       nginx = nixng.nglib.makeSystem {
-          inherit system nixpkgs;
-          name = "nixng";
-          config = ({ pkgs, config, ... }: {
-            dumb-init = {
-              enable = true;
-              type.services = { };
+        inherit system nixpkgs;
+        name = "nixng";
+        config = ({ pkgs, config, ... }: {
+          dumb-init = {
+            enable = true;
+            type.services = { };
+          };
+          init.services.nginx = {
+            shutdownOnExit = true;
+            ensureSomething.link."documentRoot" = {
+              src = "${pkgs.apacheHttpd}/htdocs";
+              dst = "/var/www";
             };
-            init.services.nginx = {
-              shutdownOnExit = true;
-              ensureSomething.link."documentRoot" = {
-                src = "${pkgs.apacheHttpd}/htdocs";
-                dst = "/var/www";
-              };
-            };
-            services.nginx = {
-              enable = true;
-              envsubst = true;
-              configuration = [
-                {
-                  daemon = "off";
-                  worker_processes = 2;
-                  user = "nginx";
+          };
+          services.nginx = {
+            enable = true;
+            envsubst = true;
+            configuration = [
+              {
+                daemon = "off";
+                worker_processes = 2;
+                user = "nginx";
 
-                  events."" = {
-                    use = "epoll";
-                    worker_connections = 128;
-                  };
+                events."" = {
+                  use = "epoll";
+                  worker_connections = 128;
+                };
 
-                  error_log = [ "/dev/stderr" "info" ];
-                  pid = "/nginx.pid";
+                error_log = [ "/dev/stderr" "info" ];
+                pid = "/nginx.pid";
 
-                  http."" = {
-                    server_tokens = "off";
-                    include = "${pkgs.nginx}/conf/mime.types";
-                    charset = "utf-8";
+                http."" = {
+                  server_tokens = "off";
+                  include = "${pkgs.nginx}/conf/mime.types";
+                  charset = "utf-8";
 
-                    access_log = [ "/dev/stdout" "combined" ];
+                  access_log = [ "/dev/stdout" "combined" ];
 
-                    server."" = {
-                      server_name = "localhost";
-                      listen = "0.0.0.0:80";
+                  server."" = {
+                    server_name = "localhost";
+                    listen = "0.0.0.0:80";
 
-                      location."/var/www" = {
-                        root = "html";
-                      };
+                    location."/var/www" = {
+                      root = "html";
                     };
                   };
-                }
-              ];
-            };
-          });
-        };
-      });
+                };
+              }
+            ];
+          };
+        });
+      };
+    });
     packages = nixpkgs.lib.genAttrs systems (system:
       let
         nix2containerPkgs = nix2container.packages.${system};

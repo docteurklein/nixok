@@ -113,7 +113,21 @@
         "kubenix": "kubenix",
         "nix2container": "nix2container",
         "nixng": "nixng",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "systemFile": "systemFile"
+      }
+    },
+    "systemFile": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1,
+        "narHash": "sha256-2PNF8sp6JG1nf+S+xUt53bVOl8AqrJ5Fpp7GmMcXdFw=",
+        "path": "./systems",
+        "type": "path"
+      },
+      "original": {
+        "path": "./systems",
+        "type": "path"
       }
     },
     "systems": {
