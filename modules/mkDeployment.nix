@@ -1,12 +1,11 @@
-{ config, kubenix, ... }: {
+{config, kubenix, ...}: {
   imports = [ kubenix.modules.k8s ];
-
-  kubernetes.resources = {
-    deployments.phpweb.spec = {
+  config = {
+    deployments.${config.name}.spec = {
       replicas = 2;
-      selector.matchLabels.app = "phpweb";
+      selector.matchLabels.app = config.name;
       template = {
-        metadata.labels.app = "phpweb";
+        metadata.labels.app = config.name;
         spec = {
           securityContext.fsGroup = 1000;
           containers.phpweb = {
@@ -17,7 +16,7 @@
       };
     };
     services.phpweb.spec = {
-      selector.app = "phpweb";
+      selector.app = config.name;
       ports = [{
         name = "http";
         port = 80;

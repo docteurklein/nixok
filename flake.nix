@@ -157,9 +157,7 @@
           module = { kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
-              ./modules/phpweb.nix
-              # ./modules/php.nix
-              # ./modules/mysql.nix
+              ./kube/modules/phpweb.nix
             ];
             docker = {
               registry.url = "docker.io";
