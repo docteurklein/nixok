@@ -1,19 +1,18 @@
-{config, lib, kubenix, ...}: {
+{config, kubenix, lib, ...}: with lib; {
   imports = [ kubenix.modules.k8s ];
 
   options = {
-    name = lib.mkOption {
-      type = lib.types.str;
+    name = mkOption {
+      type = types.str;
+    };
+    service = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+      };
+      # ports = kubenix.;
     };
   };
-
-  # options.deployments = lib.mkOption {
-  #   type = with lib.types; nullOr (enum [ ]);
-  # };
-  
-  # options.services = lib.mkOption {
-  #   type = with lib.types; nullOr (enum [ ]);
-  # };
 
   config = {
     kubernetes.resources = {
@@ -31,12 +30,9 @@
           };
         };
       };
-      services.${config.name}.spec = {
+      services.${config.name}.spec = mkIf config.service.enable {
         selector.app = config.name;
-        ports = [{
-          name = "http";
-          port = 80;
-        }];
+        # ports = config.service.ports;
       };
     };
   };
