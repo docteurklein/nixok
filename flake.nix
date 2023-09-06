@@ -43,9 +43,12 @@
 
           init.services.apache2 = {
             shutdownOnExit = true;
-            ensureSomething.link."documentRoot" = {
-              src = ./modules;
+            ensureSomething.create."documentRoot" = {
+              type = "directory";
+              mode = "750";
+              # owner = "${cfg.user}:${cfg.group}";
               dst = "/var/www";
+              persistent = false;
             };
           };
 

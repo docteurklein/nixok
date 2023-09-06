@@ -1,6 +1,6 @@
 {...}: rec {
   imports = [
-    ../../modules/mkDeployment.nix
+    ./kubenix/modules/mkDeployment.nix
   ];
   name = "phpweb";
   kubernetes.resources.services.${name}.spec.ports = [
