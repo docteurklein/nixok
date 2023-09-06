@@ -11,10 +11,27 @@
     url = "github:nix-community/NixNG";
     inputs.nixpkgs.follows = "nixpkgs";
   };
+  inputs.terranix = {
+    url = "github:terranix/terranix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  inputs.phpComposerBuilder = {
+    url = "github:loophp/nix-php-composer-builder";
+  };
 
-  outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, ... }:
-    let systems = [ "x86_64-linux"]; in {
-    nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
+  outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix2container, ... }:
+    let
+      systems = [ "x86_64-linux"];
+    in {
+    nixngConfigurations = nixpkgs.lib.genAttrs systems (system:
+      let
+        phpComposer = import nixpkgs {
+          inherit system;
+          overlays = [
+            phpComposerBuilder.overlays.default
+          ];
+        };
+      in {
       phpweb = nixng.nglib.makeSystem {
         inherit system nixpkgs;
         name = "phpweb";
@@ -32,12 +49,25 @@
             };
           };
 
+          # init.services.php-fpm-main.script = pkgs.writeShellScript "php-fpm-main-run" ''
+          #   ${config.services.php-fpm-main.package}/bin/php-fpm
+          # '';
+
           services.php-fpm = {
             pools = {
               main = {
-                package = pkgs.php.withExtensions ({ enabled, all }: enabled ++ [
-                  all.imagick
-                ]);
+                phpSettings = {
+                  memory_limt = "64M";
+                };
+                package = pkgs.php.withExtensions({enabled, all}: enabled ++ [ all.imagick ]);
+                # package = (phpComposer.api.buildComposerProject {
+                #   src = ./php;
+                #   php = phpComposer.api.buildPhpFromComposer { src = ./php; };
+                #   pname = "test";
+                #   version = "1.0.0-dev";
+                #   vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
+                #   meta.mainProgram = "test";
+                # });
                 createUserGroup = false;
                 fpmSettings = {
                   "pm" = "dynamic";
@@ -71,7 +101,7 @@
                 Listen = "0.0.0.0:80";
 
                 ServerRoot = "/var/www";
-                ServerName = "blowhole";
+                ServerName = "httpd";
                 PidFile = "/httpd.pid";
 
                 DocumentRoot = "/var/www";
@@ -129,35 +159,73 @@
     });
     packages = nixpkgs.lib.genAttrs systems (system:
       let
-        nix2containerPkgs = nix2container.packages.${system};
-        # pkgs = nixpkgs.legacyPackages.${system};
+        nix2c = nix2container.packages.${system}.nix2container;
+        pkgs = nixpkgs.legacyPackages.${system};
       in {
-        phpweb-image = nix2containerPkgs.nix2container.buildImage {
+        phpweb-image = nix2c.buildImage {
           name = "docteurklein/phpweb";
           config = {
-            StopSignal = "SIGCONT";
+            StopSignal = "SIGWINCH";
             Entrypoint = [ "${self.nixngConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             ExposedPorts = {
               "80/tcp" = {};
             };
           };
+          copyToRoot = [
+            (pkgs.buildEnv {
+              name = "root";
+              paths = with pkgs; [
+                bashInteractive
+                coreutils
+                procps
+              ];
+              pathsToLink = [ "/bin" ];
+            })
+          ];
+          # layers = [
+          #   (nix2c.buildLayer {
+          #     deps = [pkgs.bashInteractive];
+          #   })
+          # ];
           maxLayers = 125;
         };
         kubeManifest = (kubenix.evalModules.${system} {
           module = { lib, kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
-              ./kube/modules/phpweb.nix
+              ./kubenix/modules/phpweb.nix
             ];
             docker = {
               registry.url = "docker.io";
               images.phpweb.image = self.packages.${system}.phpweb-image;
             };
 
-            kubenix.project = "test1";
-            kubernetes.version = "1.27";
+            # kubenix.project = "test1";
+            # kubernetes.version = "1.27";
           };
         }).config.kubernetes.result;
+
+        terranixConfig = terranix.lib.terranixConfiguration {
+          inherit system;
+          modules = [
+            ./terranix/config.nix
+          ];
+        };
+      }
+    );
+    apps = nixpkgs.lib.genAttrs systems (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        terraform = pkgs.terraform;
+      in {
+        tf = {
+          type = "app";
+          program = toString (pkgs.writers.writeBash "apply" ''
+            cp -vf ${self.packages.${system}.terranixConfig} config.tf.json
+            ${terraform}/bin/terraform init
+            ${terraform}/bin/terraform $1
+          '');
+        };
       }
     );
     devShells = nixpkgs.lib.genAttrs systems (system:
@@ -165,7 +233,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ k3s kubectl skopeo phpactor ];
+          buildInputs = with pkgs; [ k3s terraform kubectl skopeo phpactor ];
         };
       }
     );
