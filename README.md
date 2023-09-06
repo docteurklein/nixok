@@ -1,6 +1,5 @@
 ```
-nix run .#nginx-image.copyToRegistry
-nix run .#php-image.copyToRegistry
+nix run .#phpweb-image.copyToRegistry
 
-kubectl apply -f $(nix build --no-link --print-out-paths .#manifest)
+kubectl apply -f $(nix build --no-link --print-out-paths .#kubeManifest)
 ```

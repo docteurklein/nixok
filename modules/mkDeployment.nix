@@ -10,7 +10,7 @@
         type = types.bool;
         default = true;
       };
-      # ports = kubenix.;
+      # ports = kubenix.; # @TODO: alias kubenix type?
     };
   };
 

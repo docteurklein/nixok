@@ -35,6 +35,9 @@
           services.php-fpm = {
             pools = {
               main = {
+                package = pkgs.php.withExtensions ({ enabled, all }: enabled ++ [
+                  all.imagick
+                ]);
                 createUserGroup = false;
                 fpmSettings = {
                   "pm" = "dynamic";
@@ -127,7 +130,7 @@
     packages = nixpkgs.lib.genAttrs systems (system:
       let
         nix2containerPkgs = nix2container.packages.${system};
-        pkgs = nixpkgs.legacyPackages.${system};
+        # pkgs = nixpkgs.legacyPackages.${system};
       in {
         phpweb-image = nix2containerPkgs.nix2container.buildImage {
           name = "docteurklein/phpweb";
@@ -140,7 +143,7 @@
           };
           maxLayers = 125;
         };
-        manifest = (kubenix.evalModules.${system} {
+        kubeManifest = (kubenix.evalModules.${system} {
           module = { lib, kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
@@ -155,6 +158,15 @@
             kubernetes.version = "1.27";
           };
         }).config.kubernetes.result;
+      }
+    );
+    devShells = nixpkgs.lib.genAttrs systems (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        default = pkgs.mkShell {
+          buildInputs = with pkgs; [ k3s kubectl skopeo phpactor ];
+        };
       }
     );
   };
