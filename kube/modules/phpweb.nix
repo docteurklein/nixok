@@ -1,4 +1,4 @@
 {
-  imports = [ ./modules/mkDeployment.nix ];
+  imports = [  ../../modules/mkDeployment.nix ];
   name = "phpweb";
 }

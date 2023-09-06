@@ -7,13 +7,9 @@
     url = "github:nlewo/nix2container";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  inputs.nixng= {
+  inputs.nixng = {
     url = "github:nix-community/NixNG";
     inputs.nixpkgs.follows = "nixpkgs";
-  };
-  inputs.systemFile = {
-    url="path:./systems";
-    flake=false;
   };
 
   outputs = inputs@{self, nixpkgs, nixng, kubenix, nix2container, ... }:
@@ -144,17 +140,8 @@
           };
           maxLayers = 125;
         };
-        php-image = nix2containerPkgs.nix2container.buildImage {
-          name = "docteurklein/php";
-          config = {
-            Cmd = [ "${pkgs.php}/bin/php-fpm" ];
-            ExposedPorts = {
-              "9000/tcp" = {};
-            };
-          };
-        };
         manifest = (kubenix.evalModules.${system} {
-          module = { kubenix, config, ... }: {
+          module = { lib, kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
               ./kube/modules/phpweb.nix
