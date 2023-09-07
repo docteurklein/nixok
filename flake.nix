@@ -25,138 +25,23 @@
     in {
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system:
       let
-        phpComposer = import nixpkgs {
-          inherit system;
-          overlays = [
-            phpComposerBuilder.overlays.default
-          ];
-        };
+        pkgs = nixpkgs.legacyPackages.${system}.extend phpComposerBuilder.overlays.default;
       in {
       phpweb = nixng.nglib.makeSystem {
         inherit system nixpkgs;
         name = "phpweb";
-        config = ({ pkgs, config, ... }: {
-          dumb-init = {
-            enable = true;
-            type.services = { };
-          };
-
-          init.services.apache2 = {
-            shutdownOnExit = true;
-            ensureSomething.create."documentRoot" = {
-              type = "directory";
-              mode = "750";
-              # owner = "${cfg.user}:${cfg.group}";
-              dst = "/var/www";
-              persistent = false;
-            };
-          };
-
-          # init.services.php-fpm-main.script = pkgs.writeShellScript "php-fpm-main-run" ''
-          #   ${config.services.php-fpm-main.package}/bin/php-fpm
-          # '';
-
-          services.php-fpm = {
-            pools = {
-              main = {
-                phpSettings = {
-                  memory_limt = "64M";
-                };
-                package = pkgs.php.withExtensions({enabled, all}: enabled ++ [ all.imagick ]);
-                # package = (phpComposer.api.buildComposerProject {
-                #   src = ./php;
-                #   php = phpComposer.api.buildPhpFromComposer { src = ./php; };
-                #   pname = "test";
-                #   version = "1.0.0-dev";
-                #   vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
-                #   meta.mainProgram = "test";
-                # });
-                createUserGroup = false;
-                fpmSettings = {
-                  "pm" = "dynamic";
-                  "pm.max_children" = 75;
-                  "pm.start_servers" = 10;
-                  "pm.min_spare_servers" = 5;
-                  "pm.max_spare_servers" = 20;
-                  "pm.max_requests" = 500;
-                };
-              };
-            };
-          };
-
-          services.apache2 = {
-            enable = true;
-            envsubst = true;
-            configuration = [
-              {
-                LoadModule = [
-                  [ "mpm_event_module" "modules/mod_mpm_event.so" ]
-                  [ "log_config_module" "modules/mod_log_config.so" ]
-                  [ "unixd_module" "modules/mod_unixd.so" ]
-                  [ "authz_core_module" "modules/mod_authz_core.so" ]
-                  [ "dir_module" "modules/mod_dir.so" ]
-                  [ "mime_module" "modules/mod_mime.so" ]
-                  [ "proxy_module" "modules/mod_proxy.so" ]
-                  [ "proxy_fcgi_module" "modules/mod_proxy_fcgi.so" ]
-                ];
-              }
-              {
-                Listen = "0.0.0.0:80";
-
-                ServerRoot = "/var/www";
-                ServerName = "httpd";
-                PidFile = "/httpd.pid";
-
-                DocumentRoot = "/var/www";
-
-                User = "www-data";
-                Group = "www-data";
-              }
-
-              {
-                ErrorLog = "/dev/stderr";
-                TransferLog = "/dev/stdout";
-
-                LogLevel = "info";
-              }
-
-              {
-                AddType = [
-                  [ "image/svg+xml" "svg" "svgz" ]
-                ];
-                AddEncoding = [ "gzip" "svgz" ];
-
-                TypesConfig = "${pkgs.apacheHttpd}/conf/mime.types";
-              }
-
-              {
-                Directory = {
-                  "/" = {
-                    Require = [ "all" "denied" ];
-                    Options = "SymlinksIfOwnerMatch";
-                  };
-                };
-
-                VirtualHost = {
-                  "*:80" = {
-                    ProxyPassMatch =
-                      [
-                        "^/(.*\.php(/.*)?)$"
-                        "unix:${config.services.php-fpm.pools.main.socket}|fcgi://localhost/var/www/"
-                      ];
-
-                    Directory = {
-                      "/var/www" = {
-                        Require = [ "all" "granted" ];
-                        Options = [ "-Indexes" "+FollowSymlinks" ];
-                        DirectoryIndex = "\${DIRECTORY_INDEX:-index.html}";
-                      };
-                    };
-                  };
-                };
-              }
-            ];
-          };
+        config = ({ config, ... }: {
+          package = (pkgs.api.buildComposerProject {
+            src = ./php;
+            php = pkgs.api.buildPhpFromComposer { src = ./php; };
+            pname = "test";
+            version = "1.0.0-dev";
+            vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
+            meta.mainProgram = "test";
+          });
+          imports = [
+            ./nixng/phpweb.nix
+          ];
         });
       };
     });
