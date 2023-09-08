@@ -2,4 +2,8 @@
 
 namespace Florian\KubenixTest;
 
-echo("yo");
+class Test {
+    function __construct() {  
+        echo("yo");
+    }    
+}

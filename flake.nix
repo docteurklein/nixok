@@ -8,7 +8,7 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.nixng = {
-    url = "github:nix-community/NixNG";
+    url = "github:docteurklein/NixNG/php-ini-fix";
     inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.terranix = {
@@ -21,24 +21,15 @@
 
   outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix2container, ... }:
     let
-      systems = [ "x86_64-linux"];
+      systems = [ "x86_64-linux" ];
     in {
-    nixngConfigurations = nixpkgs.lib.genAttrs systems (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system}.extend phpComposerBuilder.overlays.default;
-      in {
+    nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
       phpweb = nixng.nglib.makeSystem {
         inherit system nixpkgs;
         name = "phpweb";
-        config = ({ config, ... }: {
-          package = (pkgs.api.buildComposerProject {
-            src = ./php;
-            php = pkgs.api.buildPhpFromComposer { src = ./php; };
-            pname = "test";
-            version = "1.0.0-dev";
-            vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
-            meta.mainProgram = "test";
-          });
+        config = ({ config, lib, ... }: {
+          services.php-fpm.pools.main.package = self.packages.${system}.phpweb-composer;
+
           imports = [
             ./nixng/phpweb.nix
           ];
@@ -48,8 +39,16 @@
     packages = nixpkgs.lib.genAttrs systems (system:
       let
         nix2c = nix2container.packages.${system}.nix2container;
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = nixpkgs.legacyPackages.${system}.extend phpComposerBuilder.overlays.default;
       in {
+        phpweb-composer = pkgs.api.buildComposerProject {
+          src = ./php;
+          php = pkgs.api.buildPhpFromComposer { src = ./php; };
+          pname = "phpweb";
+          version = "1.0.0-dev";
+          vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
+          meta.mainProgram = "test";
+        };
         phpweb-image = nix2c.buildImage {
           name = "docteurklein/phpweb";
           config = {

@@ -146,15 +146,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1689967002,
-        "narHash": "sha256-CYpbDmABaiRtH7MtIjBKAJ2H2MDqZU8Mur3Qkgj6J3w=",
-        "owner": "nix-community",
+        "lastModified": 1694171728,
+        "narHash": "sha256-EwleMNbP6yOACYp2A9Mt0wk+Cq/eso1lkJ6tD6pKlB4=",
+        "owner": "docteurklein",
         "repo": "NixNG",
-        "rev": "3cba1cfa9cfd8051333d45a60cc180907461a2dd",
+        "rev": "7288b7a27d9c0a415ac758cdf246f0e8d84b498d",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "docteurklein",
+        "ref": "php-ini-fix",
         "repo": "NixNG",
         "type": "github"
       }
