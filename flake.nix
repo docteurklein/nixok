@@ -24,11 +24,12 @@
       systems = [ "x86_64-linux" ];
     in {
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
-      phpweb = nixng.nglib.makeSystem {
+      phpweb = nixng.nglib.makeSystem rec {
         inherit system nixpkgs;
         name = "phpweb";
         config = ({ config, lib, ... }: {
-          services.php-fpm.pools.main.package = self.packages.${system}.phpweb-composer;
+          inherit name;
+          package = self.packages.${system}.phpweb-composer;
 
           imports = [
             ./nixng/phpweb.nix
@@ -47,12 +48,12 @@
           pname = "phpweb";
           version = "1.0.0-dev";
           vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
-          meta.mainProgram = "test";
+          # meta.mainProgram = "test";
         };
         phpweb-image = nix2c.buildImage {
           name = "docteurklein/phpweb";
           config = {
-            StopSignal = "SIGWINCH";
+            StopSignal = "SIGWINCH"; # @TODO: use nixng pid1 "rewrite"?
             Entrypoint = [ "${self.nixngConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             ExposedPorts = {
               "80/tcp" = {};
@@ -76,7 +77,7 @@
           # ];
           maxLayers = 125;
         };
-        kubeManifest = (kubenix.evalModules.${system} {
+        kube-manifest = (kubenix.evalModules.${system} {
           module = { lib, kubenix, config, ... }: {
             imports = [
               kubenix.modules.docker
@@ -92,7 +93,7 @@
           };
         }).config.kubernetes.result;
 
-        terranixConfig = terranix.lib.terranixConfiguration {
+        terraform-config = terranix.lib.terranixConfiguration {
           inherit system;
           modules = [
             ./terranix/config.nix
@@ -103,14 +104,13 @@
     apps = nixpkgs.lib.genAttrs systems (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        terraform = pkgs.terraform;
       in {
-        tf = {
+        terraform = {
           type = "app";
-          program = toString (pkgs.writers.writeBash "apply" ''
-            cp -vf ${self.packages.${system}.terranixConfig} config.tf.json
-            ${terraform}/bin/terraform init
-            ${terraform}/bin/terraform $1
+          program = toString (pkgs.writers.writeBash "terraform" ''
+            cp -vf ${self.packages.${system}.terraform-config} config.tf.json
+            ${pkgs.terraform}/bin/terraform init
+            ${pkgs.terraform}/bin/terraform $1
           '');
         };
       }

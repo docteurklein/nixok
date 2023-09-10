@@ -1,4 +1,4 @@
 /result
-/vendor/
+vendor
 /.terraform*
 /config.tf.json

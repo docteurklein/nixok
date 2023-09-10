@@ -1,9 +1,9 @@
-{...}: rec {
+{ config, ...}: {
   imports = [
     ./mkDeployment.nix
   ];
   name = "phpweb";
-  kubernetes.resources.services.${name}.spec.ports = [
+  kubernetes.resources.services.${config.name}.spec.ports = [
     { name = "http"; port = 80; }
   ];
 }

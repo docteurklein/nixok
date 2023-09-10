@@ -23,7 +23,7 @@
           metadata.labels.app = config.name;
           spec = {
             securityContext.fsGroup = 1000;
-            containers.phpweb = {
+            containers.${config.name} = {
               image = config.docker.images.${config.name}.path;
               imagePullPolicy = "IfNotPresent";
             };
