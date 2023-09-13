@@ -5,6 +5,10 @@
     name = mkOption {
       type = types.str;
     };
+    namespace = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+    };
     service = {
       enable = mkOption {
         type = types.bool;
@@ -21,6 +25,7 @@
         selector.matchLabels.app = config.name;
         template = {
           metadata.labels.app = config.name;
+          metadata.namespace = lib.mkIf (!isNull config.namespace) config.namespace;
           spec = {
             securityContext.fsGroup = 1000;
             containers.${config.name} = {

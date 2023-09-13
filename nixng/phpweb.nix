@@ -6,9 +6,6 @@
   options.package = lib.mkOption {
     type = lib.types.package;
   };
-  # options.documentRoot = lib.mkOption {
-  #   type = lib.types.str;
-  # };
 
   config = {
     dumb-init = {

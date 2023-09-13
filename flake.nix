@@ -22,6 +22,7 @@
   outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix2container, ... }:
     let
       systems = [ "x86_64-linux" ];
+      tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput);
     in {
     nixosModules = nixpkgs.lib.genAttrs systems (system: {
       phpweb = ({config, modulesPath, lib, ...}: {
@@ -68,9 +69,9 @@
         nix2c = nix2container.packages.${system}.nix2container;
         pkgs = nixpkgs.legacyPackages.${system}.extend phpComposerBuilder.overlays.default;
       in {
-        phpweb-composer = pkgs.api.buildComposerProject {
+        phpweb-composer = pkgs.api.buildComposerProject rec {
           src = ./php;
-          php = pkgs.api.buildPhpFromComposer { src = ./php; };
+          php = pkgs.api.buildPhpFromComposer { inherit src; };
           pname = "phpweb";
           version = "1.0.0-dev";
           vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
@@ -79,7 +80,7 @@
         phpweb-image = nix2c.buildImage {
           name = "docteurklein/phpweb";
           config = {
-            StopSignal = "SIGWINCH"; # @TODO: use nixng pid1 "rewrite"?
+            StopSignal = "SIGWINCH"; # @TODO: use nixng sigell?
             # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.services.phpfpm.pools.phpweb.phpPackage}/bin/php-fpm" ];
             Entrypoint = [ "${self.nixngConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             ExposedPorts = {
@@ -104,21 +105,8 @@
           # ];
           maxLayers = 125;
         };
-        kube-manifest = (kubenix.evalModules.${system} {
-          module = { lib, kubenix, config, ... }: {
-            imports = [
-              kubenix.modules.docker
-              ./kubenix/modules/phpweb.nix
-            ];
-            docker = {
-              registry.url = "docker.io";
-              images.phpweb.image = self.packages.${system}.phpweb-image;
-            };
 
-            # kubenix.project = "test1";
-            # kubernetes.version = "1.27";
-          };
-        }).config.kubernetes.result;
+        kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
         terraform-config = terranix.lib.terranixConfiguration {
           inherit system;
@@ -128,6 +116,24 @@
         };
       }
     );
+    kubenix = nixpkgs.lib.genAttrs systems (system: {
+      kube-manifest = (kubenix.evalModules.${system} {
+        module = { lib, kubenix, config, ... }: {
+          namespace = tfoutput.test.value; # silly example
+          imports = [
+            kubenix.modules.docker
+            ./kubenix/modules/phpweb.nix
+          ];
+          docker = {
+            registry.url = "docker.io";
+            images.phpweb.image = self.packages.${system}.phpweb-image;
+          };
+
+          # kubenix.project = "test1";
+          # kubernetes.version = "1.27";
+        };
+      }).config.kubernetes;
+    });
     apps = nixpkgs.lib.genAttrs systems (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -135,9 +141,11 @@
         terraform = {
           type = "app";
           program = toString (pkgs.writers.writeBash "terraform" ''
+            set -euo pipefail
             cp -vf ${self.packages.${system}.terraform-config} config.tf.json
             ${pkgs.terraform}/bin/terraform init
-            ${pkgs.terraform}/bin/terraform $1
+            ${pkgs.terraform}/bin/terraform $@
+            ${pkgs.terraform}/bin/terraform output -json > ./tfoutput
           '');
         };
       }
@@ -147,7 +155,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ k3s terraform kubectl skopeo phpactor ];
+          buildInputs = with pkgs; [ k3s terraform kubectl phpactor ];
         };
       }
     );
