@@ -23,6 +23,32 @@
     let
       systems = [ "x86_64-linux" ];
     in {
+    nixosModules = nixpkgs.lib.genAttrs systems (system: {
+      phpweb = ({config, modulesPath, lib, ...}: {
+        imports= [
+         "${modulesPath}/profiles/minimal.nix"
+         ./nixos/phpweb.nix
+        ];
+        boot.isContainer = true;
+        environment.noXlibs = lib.mkForce true;
+        documentation.enable = lib.mkForce false;
+        documentation.nixos.enable = lib.mkForce false;
+        networking.firewall.enable = false;
+        security.audit.enable = false;
+        programs.command-not-found.enable = lib.mkForce false; 
+        services.udisks2.enable = lib.mkForce false;
+        services.nscd.enable = lib.mkForce false;
+        system.nssModules = lib.mkForce [];
+      });
+    });
+    nixosConfigurations = nixpkgs.lib.genAttrs systems (system: {
+      phpweb = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+            self.nixosModules.${system}.phpweb
+        ];
+      };
+    });
     nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
       phpweb = nixng.nglib.makeSystem rec {
         inherit system nixpkgs;
@@ -54,6 +80,7 @@
           name = "docteurklein/phpweb";
           config = {
             StopSignal = "SIGWINCH"; # @TODO: use nixng pid1 "rewrite"?
+            # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.services.phpfpm.pools.phpweb.phpPackage}/bin/php-fpm" ];
             Entrypoint = [ "${self.nixngConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             ExposedPorts = {
               "80/tcp" = {};

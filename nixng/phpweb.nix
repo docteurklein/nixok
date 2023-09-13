@@ -38,6 +38,10 @@
 
     init.services.apache2 = {
       shutdownOnExit = true;
+      ensureSomething.link."documentRoot" = {
+        src = "${config.package}/share/php/${config.name}/public";
+        dst = "/public";
+      };
       ensureSomething.create."ServerRoot" = {
         type = "directory";
         mode = "750";
@@ -64,6 +68,8 @@
         }
         {
           Listen = "0.0.0.0:80";
+
+          DocumentRoot = "/public";
 
           ServerName = "httpd";
           PidFile = "/httpd.pid";
@@ -99,10 +105,8 @@
           VirtualHost."*:80" = {
             ProxyPassMatch = [
               "^/(.*\.php(/.*)?)$"
-              "unix:${config.services.php-fpm.pools.main.socket}|fcgi://localhost/${config.package}/share/php/${config.name}"
+              "unix:${config.services.php-fpm.pools.main.socket}|fcgi://localhost/public"
             ];
-
-            DocumentRoot = "${config.package}/share/php/${config.name}";
 
             Directory = {
               "/public" = {
