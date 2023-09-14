@@ -22,7 +22,7 @@
   outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix2container, ... }:
     let
       systems = [ "x86_64-linux" ];
-      tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput);
+      tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput); # @TODO Import-From-Derivation?
     in {
     nixosModules = nixpkgs.lib.genAttrs systems (system: {
       phpweb = ({config, modulesPath, lib, ...}: {
@@ -108,21 +108,28 @@
 
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
-        terraform-config = terranix.lib.terranixConfiguration {
+        terraform-config = let ast = terranix.lib.terranixConfigurationAst {
           inherit system;
           modules = [
             ./terranix/config.nix
           ];
+        }; in {
+          ast = ast;
+          file = (pkgs.formats.json { }).generate "config.tf.json" ast.config;
         };
       }
     );
     kubenix = nixpkgs.lib.genAttrs systems (system: {
       kube-manifest = (kubenix.evalModules.${system} {
+        specialArgs = {
+         tfAst = self.packages.${system}.terraform-config.ast;
+        };
         module = { lib, kubenix, config, ... }: {
-          namespace = tfoutput.test.value; # silly example
+          #inherit tfoutput;
           imports = [
             kubenix.modules.docker
             ./kubenix/modules/phpweb.nix
+            ./kubenix/modules/tfoutput.nix
           ];
           docker = {
             registry.url = "docker.io";
@@ -141,10 +148,10 @@
         terraform = {
           type = "app";
           program = toString (pkgs.writers.writeBash "terraform" ''
-            set -euo pipefail
-            cp -vf ${self.packages.${system}.terraform-config} config.tf.json
+            set -exuo pipefail
+            cp -vf ${self.packages.${system}.terraform-config.file} config.tf.json
             ${pkgs.terraform}/bin/terraform init
-            ${pkgs.terraform}/bin/terraform $@
+            ${pkgs.terraform}/bin/terraform "$@"
             ${pkgs.terraform}/bin/terraform output -json > ./tfoutput
           '');
         };
