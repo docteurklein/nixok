@@ -108,21 +108,21 @@
 
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
-        terraform-config = let ast = terranix.lib.terranixConfigurationAst {
-          inherit system;
-          modules = [
-            ./terranix/config.nix
-          ];
-        }; in {
-          ast = ast;
-          file = (pkgs.formats.json { }).generate "config.tf.json" ast.config;
-        };
+        terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.config;
       }
     );
+    terranix = nixpkgs.lib.genAttrs systems (system: {
+      config = terranix.lib.terranixConfigurationAst {
+        inherit system;
+        modules = [
+          ./terranix/config.nix
+        ];
+      };
+    });
     kubenix = nixpkgs.lib.genAttrs systems (system: {
       kube-manifest = (kubenix.evalModules.${system} {
         specialArgs = {
-         tfAst = self.packages.${system}.terraform-config.ast;
+         tfAst = self.terranix.${system}.config;
         };
 
         module = { lib, kubenix, config, ... }: {
