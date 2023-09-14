@@ -108,11 +108,11 @@
 
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
-        terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.config;
+        terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.ast.config;
       }
     );
     terranix = nixpkgs.lib.genAttrs systems (system: {
-      config = terranix.lib.terranixConfigurationAst {
+      ast = terranix.lib.terranixConfigurationAst {
         inherit system;
         modules = [
           ./terranix/config.nix
@@ -122,7 +122,7 @@
     kubenix = nixpkgs.lib.genAttrs systems (system: {
       kube-manifest = (kubenix.evalModules.${system} {
         specialArgs = {
-         tfAst = self.terranix.${system}.config;
+         tfAst = self.terranix.${system}.ast.config;
         };
 
         module = { lib, kubenix, config, ... }: {
@@ -150,7 +150,7 @@
           type = "app";
           program = toString (pkgs.writers.writeBash "terraform" ''
             set -exuo pipefail
-            cp -vf ${self.packages.${system}.terraform-config.file} config.tf.json
+            cp -vf ${self.packages.${system}.terraform-config} config.tf.json
             ${pkgs.terraform}/bin/terraform init
             ${pkgs.terraform}/bin/terraform "$@"
             ${pkgs.terraform}/bin/terraform output -json > ./tfoutput

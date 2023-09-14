@@ -11,5 +11,5 @@
     type = mkOption {
       type = types.str;
     };
-  }) tfAst.config.output;
+  }) tfAst.output;
 }
