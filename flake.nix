@@ -124,8 +124,9 @@
         specialArgs = {
          tfAst = self.packages.${system}.terraform-config.ast;
         };
+
         module = { lib, kubenix, config, ... }: {
-          #inherit tfoutput;
+          namespace = tfoutput.test.value; # silly example, but it type checks!
           imports = [
             kubenix.modules.docker
             ./kubenix/modules/phpweb.nix
