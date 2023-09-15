@@ -2,8 +2,9 @@
   imports = [
     ./mkDeployment.nix
   ];
-  name = "phpweb";
-  kubernetes.resources.services.${config.name}.spec.ports = [
-    { name = "http"; port = 80; }
+
+  mod = [
+    { name = "phpweb"; }
+    { name = "phpweb2"; }
   ];
 }

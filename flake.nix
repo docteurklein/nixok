@@ -24,6 +24,19 @@
       systems = [ "x86_64-linux" ];
       tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput); # @TODO Import-From-Derivation?
     in {
+    stack = nixpkgs.lib.genAttrs systems (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in (pkgs.lib.evalModules {
+        modules = [
+          ./stack/modules/service.nix
+          ({config, ...}: {
+            services.a = {};
+            services.b = {};
+          })
+        ];
+      }).config
+    );
     nixosModules = nixpkgs.lib.genAttrs systems (system: {
       phpweb = ({config, modulesPath, lib, ...}: {
         imports= [
@@ -122,19 +135,27 @@
     kubenix = nixpkgs.lib.genAttrs systems (system: {
       kube-manifest = (kubenix.evalModules.${system} {
         specialArgs = {
-         tfAst = self.terranix.${system}.ast.config;
+          tfAst = self.terranix.${system}.ast.config;
+          stack = self.stack.${system};
         };
 
         module = { lib, kubenix, config, ... }: {
-          namespace = tfoutput.test.value; # silly example, but it type checks!
           imports = [
             kubenix.modules.docker
-            ./kubenix/modules/phpweb.nix
             ./kubenix/modules/tfoutput.nix
+            ./kubenix/modules/mkDeployment.nix
           ];
+
+          namespace = tfoutput.test.value;
+          services = self.stack.${system}.services;
+
           docker = {
             registry.url = "docker.io";
             images.phpweb.image = self.packages.${system}.phpweb-image;
+            images.phpweb2.image = self.packages.${system}.phpweb-image;
+            images.a.image = self.packages.${system}.phpweb-image;
+            images.b.image = self.packages.${system}.phpweb-image;
+            images.c.image = self.packages.${system}.phpweb-image;
           };
 
           # kubenix.project = "test1";

@@ -1,44 +1,63 @@
 {config, kubenix, lib, ...}: with lib; {
   imports = [ kubenix.modules.k8s ];
 
-  options = {
-    name = mkOption {
-      type = types.str;
-    };
+  options =  with types; {
     namespace = mkOption {
-      type = types.nullOr types.str;
+      type = nullOr str;
       default = null;
     };
-    service = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-      };
-      # ports = kubenix.; # @TODO: alias kubenix type?
+    services = mkOption {
+      type = attrsOf (submodule {
+        options = {
+          name = mkOption {
+            type = str;
+          };
+          namespace = mkOption {
+            type = nullOr str;
+            default = null;
+          };
+          service = {
+            enable = mkOption {
+              type = bool;
+              default = true;
+            };
+            # ports = kubenix.; # @TODO: alias kubenix type?
+          };
+        };    
+
+      });
     };
   };
-
+  
   config = {
-    kubernetes.resources = {
-      deployments.${config.name}.spec = {
+    kubernetes.resources.deployments = builtins.mapAttrs (name: m:
+    let ns = config.namespace or m.namespect;
+    in {
+      spec = {
         replicas = 2;
-        selector.matchLabels.app = config.name;
+        selector.matchLabels.app = name;
         template = {
-          metadata.labels.app = config.name;
-          metadata.namespace = lib.mkIf (!isNull config.namespace) config.namespace;
+          metadata.labels.app = name;
+          metadata.namespace = lib.mkIf (!isNull ns) ns;
           spec = {
             securityContext.fsGroup = 1000;
-            containers.${config.name} = {
-              image = config.docker.images.${config.name}.path;
+            containers.${name} = {
+              image = config.docker.images.${name}.path;
               imagePullPolicy = "IfNotPresent";
             };
           };
         };
       };
-      services.${config.name}.spec = mkIf config.service.enable {
-        selector.app = config.name;
+    }) config.services;
+
+    kubernetes.resources.services = builtins.mapAttrs (name: m:
+    let ns = config.namespace or m.namespect;
+    in {
+      metadata.namespace = lib.mkIf (!isNull ns) ns;
+      spec = mkIf m.service.enable {
+        selector.app = name;
         # ports = config.service.ports;
       };
-    };
+    }) config.services;
   };
 }
