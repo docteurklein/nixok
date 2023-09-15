@@ -41,5 +41,24 @@
         "prefix": "test1"
       }
     }
+  },
+  "w3": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "id": "string",
+        "triggers": [
+          "map",
+          "string"
+        ]
+      }
+    ],
+    "value": {
+      "id": "5159150326948271661",
+      "triggers": {
+        "prefix": "test1"
+      }
+    }
   }
 }

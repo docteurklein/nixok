@@ -158,6 +158,7 @@
             images.phpweb2.image = self.packages.${system}.phpweb-image;
             images.w1.image = self.packages.${system}.phpweb-image;
             images.w2.image = self.packages.${system}.phpweb-image;
+            images.w3.image = self.packages.${system}.phpweb-image;
             images.s1.image = self.packages.${system}.phpweb-image;
             images.s2.image = self.packages.${system}.phpweb-image;
           };
