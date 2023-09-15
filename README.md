@@ -13,13 +13,17 @@ HCL for terraform and cue-lang are relatively similar to nix-lang, but they lack
 
 1. define **all** your objects in a single grand-unified nix module
 2. apply the auto-generated tf-config file:
-    nix run .#terraform -- apply -auto-approve -var prefix=test1
+````
+nix run .#terraform -- apply -auto-approve -var prefix=test1
+````
 3. upload the auto-generated docker image:
-    nix run .#phpweb-image.copyToRegistry
+````
+nix run .#phpweb-image.copyToRegistry
+````
 4. apply the auto-generated kube manifest:
-    kubectl apply -f $(nix build --no-link --print-out-paths .#kube-manifest)
-
-One cool thing is that you can pass values from one module to the other without having to write a lot of bash.
+````
+kubectl apply -f $(nix build --no-link --print-out-paths .#kube-manifest)
+````
 
 ## learnings:
 
