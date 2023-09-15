@@ -28,12 +28,12 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
       in (pkgs.lib.evalModules {
+        specialArgs = {
+          inherit tfoutput;
+        };
         modules = [
-          ./stack/modules/service.nix
-          ({config, ...}: {
-            services.a = {};
-            services.b = {};
-          })
+          ./stack/modules/services.nix
+          ./stack/modules/workers.nix
         ];
       }).config
     );
@@ -129,6 +129,9 @@
         inherit system;
         modules = [
           ./terranix/config.nix
+          ({config, ...}: {
+            workers = self.stack.${system}.workers;
+          })
         ];
       };
     });
@@ -136,7 +139,6 @@
       kube-manifest = (kubenix.evalModules.${system} {
         specialArgs = {
           tfAst = self.terranix.${system}.ast.config;
-          stack = self.stack.${system};
         };
 
         module = { lib, kubenix, config, ... }: {
@@ -146,16 +148,18 @@
             ./kubenix/modules/mkDeployment.nix
           ];
 
-          namespace = tfoutput.test.value;
+          namespace = tfoutput.prefix.value;
           services = self.stack.${system}.services;
+          workers = self.stack.${system}.workers;
 
           docker = {
             registry.url = "docker.io";
             images.phpweb.image = self.packages.${system}.phpweb-image;
             images.phpweb2.image = self.packages.${system}.phpweb-image;
-            images.a.image = self.packages.${system}.phpweb-image;
-            images.b.image = self.packages.${system}.phpweb-image;
-            images.c.image = self.packages.${system}.phpweb-image;
+            images.w1.image = self.packages.${system}.phpweb-image;
+            images.w2.image = self.packages.${system}.phpweb-image;
+            images.s1.image = self.packages.${system}.phpweb-image;
+            images.s2.image = self.packages.${system}.phpweb-image;
           };
 
           # kubenix.project = "test1";

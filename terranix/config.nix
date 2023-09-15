@@ -1,20 +1,35 @@
-{ config, lib, ... }: {
-  #resource.google_compute_network.vpc_network = {
-  #  name = "\${var.prefix}-terraform-network";
-  #};
+{ config, lib, ... }: with lib; {
 
-  resource.null_resource.test = {
-    provisioner."local-exec" = {
-      command = "echo \${var.prefix}; date";
-    };
-    triggers = {
-      prefix = lib.tfRef "var.prefix";
+  options = with types; {
+    workers = mkOption {
+      type = attrsOf (submodule {
+        options = {
+          subscription = mkOption {
+            type = str;
+          };
+        };
+      });
     };
   };
 
-  output.test.value = lib.tfRef "null_resource.test.id";
+  config = {
+    resource.null_resource = builtins.mapAttrs (name: m: {
+      provisioner."local-exec" = {
+        command = "echo \${var.prefix}-${name}";
+      };
+      triggers = {
+        prefix = lib.tfRef "var.prefix";
+      };
+    }) config.workers;
 
-  variable.prefix = {
-    type = "string";
+    output = (builtins.mapAttrs (name: m: {
+      value = lib.tfRef "resource.null_resource.${name}";
+    }) config.workers) // {
+      prefix = { value = lib.tfRef "var.prefix"; };
+    };
+
+    variable.prefix = {
+      type = "string";
+    };
   };
 }

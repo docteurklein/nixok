@@ -4,4 +4,8 @@
       type = types.attrsOf types.attrs;
     };
   };
+  config = {
+    services.s1 = {};
+    services.s2 = {};
+  };
 }

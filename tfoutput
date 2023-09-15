@@ -1,7 +1,45 @@
 {
-  "test": {
+  "prefix": {
     "sensitive": false,
     "type": "string",
-    "value": "1244843590371938730"
+    "value": "test1"
+  },
+  "w1": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "id": "string",
+        "triggers": [
+          "map",
+          "string"
+        ]
+      }
+    ],
+    "value": {
+      "id": "2250236405642308034",
+      "triggers": {
+        "prefix": "test1"
+      }
+    }
+  },
+  "w2": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "id": "string",
+        "triggers": [
+          "map",
+          "string"
+        ]
+      }
+    ],
+    "value": {
+      "id": "5650474509339600264",
+      "triggers": {
+        "prefix": "test1"
+      }
+    }
   }
 }
