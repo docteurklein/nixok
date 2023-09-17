@@ -22,7 +22,7 @@
   outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix2container, ... }:
     let
       systems = [ "x86_64-linux" ];
-      tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput); # @TODO Import-From-Derivation?
+      tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput.json); # @TODO Import-From-Derivation?
     in {
     stack = nixpkgs.lib.genAttrs systems (system:
       let
@@ -179,7 +179,7 @@
             cp -vf ${self.packages.${system}.terraform-config} config.tf.json
             ${pkgs.terraform}/bin/terraform init
             ${pkgs.terraform}/bin/terraform "$@"
-            ${pkgs.terraform}/bin/terraform output -json > ./tfoutput
+            ${pkgs.terraform}/bin/terraform output -json > ./tfoutput.json
           '');
         };
       }
@@ -189,7 +189,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ k3s terraform kubectl phpactor ];
+          buildInputs = with pkgs; [ tmux helix nil k3s terraform kubectl phpactor ];
         };
       }
     );

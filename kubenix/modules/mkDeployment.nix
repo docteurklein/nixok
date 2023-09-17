@@ -37,7 +37,10 @@
               type = bool;
               default = true;
             };
-            # ports = kubenix.; # @TODO: alias kubenix type?
+            ports = mkOption {
+              type = listOf attrs;
+              default = [];
+            };
           };
         };
       });
@@ -73,10 +76,10 @@
     let ns = config.namespace or m.namespace;
     in {
       metadata.namespace = mkIf (!isNull ns) ns;
-      spec = mkIf m.service.enable {
+      spec = {
         selector.app = name;
-        # ports = config.service.ports;
+        ports = mkIf (length m.service.ports != 0) m.service.ports;
       };
-    }) config.services;
+    }) (lib.attrsets.filterAttrs (name: m: m.service.enable) config.services);
   };
 }

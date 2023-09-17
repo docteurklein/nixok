@@ -5,7 +5,11 @@
     };
   };
   config = {
-    services.s1 = {};
+    services.s1 = {
+      service.ports = [
+        { name = "http"; port = 80; }
+      ];
+    };
     services.s2 = {};
   };
 }

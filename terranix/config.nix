@@ -22,14 +22,14 @@
       };
     }) config.workers;
 
+    variable.prefix = {
+      type = "string";
+    };
+
     output = (builtins.mapAttrs (name: m: {
       value = lib.tfRef "resource.null_resource.${name}";
     }) config.workers) // {
       prefix = { value = lib.tfRef "var.prefix"; };
-    };
-
-    variable.prefix = {
-      type = "string";
     };
   };
 }
