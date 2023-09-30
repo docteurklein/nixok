@@ -1,8 +1,18 @@
 {
     "name": "florian/kubenix-test",
+    "version": "1.0.1",
     "description": "A test",
     "require": {
-        "symfony/http-kernel": "^6.3"
+        "php": "^8.1",
+        "ext-grpc": "*",
+        "ext-opentelemetry": "*",
+        "ext-pdo_sqlite": "*",
+        "open-telemetry/exporter-otlp": "^0.0.17",
+        "open-telemetry/transport-grpc": "^0.0.17",
+        "symfony/http-client": "^6.3",
+        "nyholm/psr7": "^1.8",
+        "guzzlehttp/promises": "^2.0",
+        "php-http/httplug": "^2.4"
     },
     "autoload": {
         "psr-4": {
@@ -14,5 +24,10 @@
             "name": "Florian Klein",
             "email": "florian.klein@free.fr"
         }
-    ]
+    ],
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
 }

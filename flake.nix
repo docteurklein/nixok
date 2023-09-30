@@ -79,18 +79,30 @@
     });
     packages = nixpkgs.lib.genAttrs systems (system:
       let
-        nix2c = nix2container.packages.${system}.nix2container;
-        pkgs = nixpkgs.legacyPackages.${system}.extend phpComposerBuilder.overlays.default;
+        pkgs = (nixpkgs.legacyPackages.${system}
+          .extend phpComposerBuilder.overlays.default)
+          .extend (final: prev: {
+            nix2c = nix2container.packages.${system}.nix2container;
+          });
       in {
         phpweb-composer = pkgs.api.buildComposerProject rec {
           src = ./php;
-          php = pkgs.api.buildPhpFromComposer { inherit src; };
+          php = pkgs.api.buildPhpFromComposer {
+            inherit src;
+            php = pkgs.php81.override {
+              packageOverrides = final: prev: {
+                extensions = prev.extensions // {
+                  opentelemetry = final.callPackage ./php-opentelemetry.nix prev;
+                };
+              };
+            };
+          };
           pname = "phpweb";
-          version = "1.0.0-dev";
-          vendorHash = "sha256-ZdxRo0tzoKXPXrgA4Q9Kc5JSEEoqcTV/uvMMMD1z7NI=";
+          version = "1.0.1-dev";
+          vendorHash = "sha256-ML9PQKi3XGEEHBRHAan7v72NL84uVZVDGEbACIURUCQ=";
           # meta.mainProgram = "test";
         };
-        phpweb-image = nix2c.buildImage {
+        phpweb-image = pkgs.nix2c.buildImage {
           name = "docteurklein/phpweb";
           config = {
             StopSignal = "SIGWINCH"; # @TODO: use nixng sigell?
@@ -112,7 +124,7 @@
             })
           ];
           # layers = [
-          #   (nix2c.buildLayer {
+          #   (pkgs.nix2c.buildLayer {
           #     deps = [pkgs.bashInteractive];
           #   })
           # ];
@@ -122,6 +134,7 @@
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
         terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.ast.config;
+
       }
     );
     terranix = nixpkgs.lib.genAttrs systems (system: {

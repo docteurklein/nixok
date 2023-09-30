@@ -25,8 +25,10 @@ nix run .#phpweb-image.copyToRegistry
 kubectl apply -f $(nix build --no-link --print-out-paths .#kube-manifest)
 ````
 
-## learnings:
+## bookmarks:
 
     nix eval '.#kubenix.x86_64-linux.kube-manifest.generated'  --json
 
     docker run --rm --name phpweb -p 8080:80  docteurklein/phpweb:$tag
+
+    nix run .#phpweb-composer.php.packages.composer -- require …
