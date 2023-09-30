@@ -89,13 +89,6 @@
           src = ./php;
           php = pkgs.api.buildPhpFromComposer {
             inherit src;
-            php = pkgs.php81.override {
-              packageOverrides = final: prev: {
-                extensions = prev.extensions // {
-                  opentelemetry = final.callPackage ./php-opentelemetry.nix prev;
-                };
-              };
-            };
           };
           pname = "phpweb";
           version = "1.0.1-dev";

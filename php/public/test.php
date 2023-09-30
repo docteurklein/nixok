@@ -51,4 +51,4 @@ hook(
     }
 );
 
-new Test(new PDO('sqlite::memory'));
+new Test(new PDO('sqlite::memory:'));
