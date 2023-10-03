@@ -31,6 +31,7 @@
     '';
     pools = {
       main = {
+        listen = "127.0.0.1:9000";
         user = config.name;
         group = config.name;
         phpPackage = config.package.php;
@@ -54,8 +55,5 @@
     };
     users.groups.${config.name} = {};
 
-    environment.systemPackages = [
-      config.package.php
-    ];
   };
 }

@@ -65,13 +65,14 @@
           };
           spec = {
             securityContext.fsGroup = 1000;
-            # containers."${name}-nginx" = {
-            #   image = m.image.image;
-            #   imagePullPolicy = "IfNotPresent";
-            # };
+            containers."${name}-nginx" = {
+              # image = m.image.image;
+              image = config.docker.images.${name}.path;
+              imagePullPolicy = "IfNotPresent";
+            };
             containers."${name}-fpm" = {
-              # image = config.docker.images.${name}.path;
-              image = m.image.image;
+              image = config.docker.images.${name}.path;
+              # image = m.image.image;
               imagePullPolicy = "IfNotPresent";
             };
           };

@@ -42,8 +42,8 @@
     nixosModules = nixpkgs.lib.genAttrs systems (system: {
       phpweb = ({config, modulesPath, lib, ...}: {
         imports= [
-         "${modulesPath}/profiles/minimal.nix"
-         ./nixos/phpweb.nix
+          "${modulesPath}/profiles/minimal.nix"
+          ./nixos/phpweb.nix
         ];
         package = self.packages.${system}.phpweb-composer;
 
@@ -111,21 +111,21 @@
             touch $out/etc/php.ini
           '';
         };
-        phpweb-image = pkgs.nix-snapshotter.buildImage {
-        # phpweb-image = pkgs.nix2c.buildImage {
+        # phpweb-image = pkgs.nix-snapshotter.buildImage {
+        phpweb-image = pkgs.nix2c.buildImage {
           name = "docteurklein/phpweb";
-          resolvedByNix = true;
+          maxLayers = 125;
+          # resolvedByNix = true;
           config = {
             # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.services.phpfpm.pools.main.phpPackage}/bin/php-fpm" ];
             # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
-            Entrypoint = [ "/bin/sh" ];
+            Entrypoint = [ "${pkgs.dumb-init}/bin/dumb-init" "--" ];
 
             ExposedPorts = {
               "80/tcp" = {};
               "9000/tcp" = {};
             };
           };
-          # copyToRoot = self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel;
           copyToRoot = pkgs.buildEnv {
             name = "root";
             paths = with pkgs; let 
@@ -139,26 +139,28 @@
               '')
               (writeTextDir "etc/passwd" ''
                 root:x:0:0::/root:/bin/sh
+                nobody:x:99:99:nogroup:/:/sbin/nologin
                 ${user}:x:${toString uid}:${toString gid}::/home/${user}:
               '')
               (writeTextDir "etc/group" ''
                 root:x:0:
+                nogroup:x:99:
                 ${user}:x:${toString gid}:
               '')
               (writeTextDir "etc/gshadow" ''
                 root:x::
+                nobody:x::
                 ${user}:x::
               '')
               coreutils
               procps
               bashInteractive
-              self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel
+              nginx
+              self.packages.${system}.phpweb-composer.php
               self.nixosConfigurations.${system}.phpweb.config.system.build.etc
-              # self.packages.${system}.phpweb-composer.php
             ];
             pathsToLink = [ "/bin" "/etc" ];
           };
-          # maxLayers = 125;
         };
 
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
@@ -185,42 +187,36 @@
 
         module = { lib, kubenix, config, pkgs, ... }: {
           imports = [
-            # kubenix.modules.docker
+            kubenix.modules.docker
             ./kubenix/modules/tfoutput.nix
             ./kubenix/modules/mkDeployment.nix
           ];
 
           kubernetes.resources.deployments.s1.spec.template.spec = {
-            # containers."s1-nginx" = {
-            #   command = lib.strings.splitString " " self.nixosConfigurations.${system}.phpweb.config.systemd.services.nginx.serviceConfig.ExecStart;
-            # };
-            containers."s1-fpm" = {
-              # command = ["/bin/sh" "-c" "sleep inf"];
-              command = lib.strings.splitString " " self.nixosConfigurations.${system}.phpweb.config.systemd.services.phpfpm-main.serviceConfig.ExecStart;
+            containers."s1-nginx" = {
+              command = builtins.map (p: builtins.replaceStrings ["'"] [""] p) (lib.strings.splitString " "
+                self.nixosConfigurations.${system}.phpweb.config.systemd.services.nginx.serviceConfig.ExecStart
+              );
               volumeMounts = [
-                {
-                  name = "tmp";
-                  mountPath = "/tmp";
-                }
-                {
-                  name = "run";
-                  mountPath = "/run/phpfpm";
-                }
+                { name = "var"; mountPath = "/var/log/nginx"; }
+                { name = "tmp"; mountPath = "/tmp/nginx_client_body"; subPath = "nginx"; }
+                { name = "run"; mountPath = "/run/nginx"; subPath = "nginx"; }
+              ];
+            };
+            containers."s1-fpm" = {
+              # command = ["/bin/sh" "-c" "while true; do echo '.'; sleep 1; done"];
+              command = lib.strings.splitString " "
+                self.nixosConfigurations.${system}.phpweb.config.systemd.services.phpfpm-main.serviceConfig.ExecStart
+              ;
+              volumeMounts = [
+                { name = "tmp"; mountPath = "/tmp"; subPath = "fpm"; }
+                { name = "run"; mountPath = "/run/phpfpm"; subPath = "fpm"; }
               ];
             };
             volumes = [
-              {
-                name = "tmp";
-                emptyDir = {
-                  sizeLimit = "500Mi";
-                };
-              }
-              {
-                name = "run";
-                emptyDir = {
-                  sizeLimit = "500Mi";
-                };
-              }
+              { name = "tmp"; emptyDir = { sizeLimit = "500Mi"; }; }
+              { name = "run"; emptyDir = { sizeLimit = "500Mi"; }; }
+              { name = "var"; emptyDir = { sizeLimit = "500Mi"; }; }
             ];
           };
 
@@ -228,10 +224,10 @@
           services = self.stack.${system}.services;
           # workers = self.stack.${system}.workers;
 
-          # docker = {
-          #   registry.url = "docker.io";
-          #   images.s1.image = self.packages.${system}.phpweb-image;
-          # };
+          docker = {
+            registry.url = "docker.io";
+            images.s1.image = self.packages.${system}.phpweb-image;
+          };
 
           # kubenix.project = "test1";
           # kubernetes.version = "1.27";
