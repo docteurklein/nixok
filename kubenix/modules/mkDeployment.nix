@@ -1,4 +1,4 @@
-{config, kubenix, lib, ...}: with lib; {
+{ self, config, kubenix, lib, ...}: with lib; {
   imports = [ kubenix.modules.k8s ];
 
   options = with types; {
@@ -28,19 +28,16 @@
           name = mkOption {
             type = str;
           };
+          image = mkOption {
+            type = package;
+          };
           namespace = mkOption {
             type = nullOr str;
             default = null;
           };
-          service = {
-            enable = mkOption {
-              type = bool;
-              default = true;
-            };
-            ports = mkOption {
-              type = listOf attrs;
-              default = [];
-            };
+          ports = mkOption {
+            type = listOf attrs;
+            default = [];
           };
         };
       });
@@ -51,26 +48,35 @@
     kubernetes.resources.deployments = builtins.mapAttrs (name: m:
     let ns = config.namespace or m.namespace;
     in {
+      metadata.namespace = mkIf (!isNull ns) ns;
       spec = {
-        replicas = 2;
+        replicas = 1;
         selector.matchLabels.app = name;
         template = {
-          metadata.labels.app = name;
-          metadata.namespace = mkIf (!isNull ns) ns;
+          metadata = {
+            annotations = {
+              "profiles.grafana.com/cpu.port_name" = "http-metrics";
+              "profiles.grafana.com/cpu.scrape" = "true";
+              "profiles.grafana.com/memory.port_name" = "http-metrics";
+              "profiles.grafana.com/memory.scrape" = "true";
+            };
+            labels.app = name;
+            namespace = mkIf (!isNull ns) ns;
+          };
           spec = {
             securityContext.fsGroup = 1000;
-            containers.${name} = {
-              image = config.docker.images.${name}.path;
+            # containers."${name}-nginx" = {
+            #   image = m.image.image;
+            #   imagePullPolicy = "IfNotPresent";
+            # };
+            containers."${name}-fpm" = {
+              image = m.image.image;
               imagePullPolicy = "IfNotPresent";
-              env = [] ++ (if m ? subscription then [{
-                name = "subscription";
-                value = m.subscription;
-              }] else []);
             };
           };
         };
       };
-    }) (config.services // config.workers);
+    }) (config.services); # // config.workers);
 
     kubernetes.resources.services = builtins.mapAttrs (name: m:
     let ns = config.namespace or m.namespace;
@@ -78,8 +84,8 @@
       metadata.namespace = mkIf (!isNull ns) ns;
       spec = {
         selector.app = name;
-        ports = mkIf (length m.service.ports != 0) m.service.ports;
+        ports = mkIf (length m.ports != 0) m.ports;
       };
-    }) (lib.attrsets.filterAttrs (name: m: m.service.enable) config.services);
+    }) (lib.attrsets.filterAttrs (name: m: (length m.ports) > 0) config.services);
   };
 }

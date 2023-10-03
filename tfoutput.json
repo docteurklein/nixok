@@ -2,7 +2,7 @@
   "prefix": {
     "sensitive": false,
     "type": "string",
-    "value": "test1"
+    "value": "test"
   },
   "w1": {
     "sensitive": false,
@@ -17,9 +17,9 @@
       }
     ],
     "value": {
-      "id": "2250236405642308034",
+      "id": "3100870327927236094",
       "triggers": {
-        "prefix": "test1"
+        "prefix": "test"
       }
     }
   },
@@ -36,9 +36,9 @@
       }
     ],
     "value": {
-      "id": "5650474509339600264",
+      "id": "1993107489894745527",
       "triggers": {
-        "prefix": "test1"
+        "prefix": "test"
       }
     }
   },
@@ -55,9 +55,9 @@
       }
     ],
     "value": {
-      "id": "5159150326948271661",
+      "id": "8206195849451941817",
       "triggers": {
-        "prefix": "test1"
+        "prefix": "test"
       }
     }
   }

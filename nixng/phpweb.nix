@@ -12,7 +12,19 @@
       enable = true;
       type.services = { };
     };
-
+    init.services.apache2 = {
+      shutdownOnExit = true;
+      ensureSomething.link."documentRoot" = {
+        src = "${config.package}/share/php/${config.name}/public";
+        dst = "/public";
+      };
+      ensureSomething.create."ServerRoot" = {
+        type = "directory";
+        mode = "750";
+        dst = "/usr/local/apache";
+        persistent = true;
+      };
+    };
     services.php-fpm = {
       pools = {
         main = {
@@ -32,21 +44,6 @@
         };
       };
     };
-
-    init.services.apache2 = {
-      shutdownOnExit = true;
-      ensureSomething.link."documentRoot" = {
-        src = "${config.package}/share/php/${config.name}/public";
-        dst = "/public";
-      };
-      ensureSomething.create."ServerRoot" = {
-        type = "directory";
-        mode = "750";
-        dst = "/usr/local/apache";
-        persistent = true;
-      };
-    };
-
     services.apache2 = {
       enable = true;
       envsubst = true;
