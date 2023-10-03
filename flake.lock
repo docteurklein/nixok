@@ -104,6 +104,21 @@
     },
     "flake-utils": {
       "locked": {
+        "lastModified": 1653893745,
+        "narHash": "sha256-0jntwV3Z8//YwuOjzhV2sgJJPt+HY6KhU7VZUL0fKZQ=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "1ed9fb1935d260de5fe1c2f7ee0ebaae17ed2fa1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "flake-utils_2": {
+      "locked": {
         "lastModified": 1634851050,
         "narHash": "sha256-N83GlSGPJJdcqhUxSCS/WwW5pksYf3VP1M13cDRTSVA=",
         "owner": "numtide",
@@ -162,24 +177,24 @@
         "type": "github"
       }
     },
-    "nixng": {
+    "nix2container": {
       "inputs": {
+        "flake-utils": "flake-utils",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1694171728,
-        "narHash": "sha256-EwleMNbP6yOACYp2A9Mt0wk+Cq/eso1lkJ6tD6pKlB4=",
-        "owner": "docteurklein",
-        "repo": "NixNG",
-        "rev": "7288b7a27d9c0a415ac758cdf246f0e8d84b498d",
+        "lastModified": 1695754148,
+        "narHash": "sha256-Yd9RtAswzb5XDDmrZWB2X0clTFIzJbCPHLpTLoYnJR4=",
+        "owner": "nlewo",
+        "repo": "nix2container",
+        "rev": "4d228f3722d441ad19f29f11a277097641002409",
         "type": "github"
       },
       "original": {
-        "owner": "docteurklein",
-        "ref": "php-ini-fix",
-        "repo": "NixNG",
+        "owner": "nlewo",
+        "repo": "nix2container",
         "type": "github"
       }
     },
@@ -237,7 +252,7 @@
       "inputs": {
         "kubenix": "kubenix",
         "nix-snapshotter": "nix-snapshotter",
-        "nixng": "nixng",
+        "nix2container": "nix2container",
         "nixpkgs": "nixpkgs",
         "phpComposerBuilder": "phpComposerBuilder",
         "terranix": "terranix"
@@ -261,7 +276,7 @@
       "inputs": {
         "bats-assert": "bats-assert",
         "bats-support": "bats-support",
-        "flake-utils": "flake-utils",
+        "flake-utils": "flake-utils_2",
         "nixpkgs": [
           "nixpkgs"
         ],

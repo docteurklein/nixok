@@ -32,6 +32,7 @@
     pools = {
       main = {
         user = config.name;
+        group = config.name;
         phpPackage = config.package.php;
         settings = {
           "pm" = "dynamic";
@@ -56,13 +57,5 @@
     environment.systemPackages = [
       config.package.php
     ];
-
-    # environment.etc = {
-    #   "php.ini" = {
-    #     text = ''
-    #     '';
-    #     mode = "0440";
-    #   };
-    # };
   };
 }

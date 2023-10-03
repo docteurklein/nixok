@@ -1,14 +1,11 @@
 {
+  # inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-23.05";
   inputs.kubenix = {
     url = "github:hall/kubenix";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  # inputs.nix2container = {
-  #   url = "github:nlewo/nix2container";
-  #   inputs.nixpkgs.follows = "nixpkgs";
-  # };
-  inputs.nixng = {
-    url = "github:docteurklein/NixNG/php-ini-fix";
+  inputs.nix2container = {
+    url = "github:nlewo/nix2container";
     inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.terranix = {
@@ -23,7 +20,7 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, nixng, kubenix, nix-snapshotter, ... }:
+  outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, kubenix, nix-snapshotter, nix2container, ... }:
     let
       systems = [ "x86_64-linux" ];
       tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput.json); # @TODO Import-From-Derivation?
@@ -50,15 +47,23 @@
         ];
         package = self.packages.${system}.phpweb-composer;
 
+        system.stateVersion = "23.05";
         boot.isContainer = true;
+        boot.specialFileSystems = lib.mkForce {};
         environment.noXlibs = lib.mkForce true;
         documentation.enable = lib.mkForce false;
         documentation.nixos.enable = lib.mkForce false;
         networking.firewall.enable = false;
+        networking.hostName = "";
         security.audit.enable = false;
         programs.command-not-found.enable = lib.mkForce false; 
         services.udisks2.enable = lib.mkForce false;
         services.nscd.enable = lib.mkForce false;
+        services.journald.console = "/dev/console";
+        systemd.services.systemd-logind.enable = false;
+        systemd.services.console-getty.enable = false;
+        systemd.sockets.nix-daemon.enable = lib.mkDefault false;
+        systemd.services.nix-daemon.enable = lib.mkDefault false;
         system.nssModules = lib.mkForce [];
       });
     });
@@ -70,28 +75,28 @@
         ];
       };
     });
-    nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
-      phpweb = nixng.nglib.makeSystem rec {
-        inherit system nixpkgs;
-        name = "phpweb";
-        config = ({ config, lib, ... }: {
-          inherit name;
-          package = self.packages.${system}.phpweb-composer;
+    # nixngConfigurations = nixpkgs.lib.genAttrs systems (system: {
+    #   phpweb = nixng.nglib.makeSystem rec {
+    #     inherit system nixpkgs;
+    #     name = "phpweb";
+    #     config = ({ config, lib, ... }: {
+    #       inherit name;
+    #       package = self.packages.${system}.phpweb-composer;
 
-          imports = [
-            ./nixng/phpweb.nix
-          ];
-        });
-      };
-    });
+    #       imports = [
+    #         ./nixng/phpweb.nix
+    #       ];
+    #     });
+    #   };
+    # });
     packages = nixpkgs.lib.genAttrs systems (system:
       let
-        pkgs = (nixpkgs.legacyPackages.${system}
+        pkgs = ((nixpkgs.legacyPackages.${system}
           .extend phpComposerBuilder.overlays.default)
-          .extend nix-snapshotter.overlays.default;
-          # .extend (final: prev: {
-          #   nix2c = nix2container.packages.${system}.nix2container;
-          # });
+          .extend nix-snapshotter.overlays.default)
+          .extend (final: prev: {
+            nix2c = nix2container.packages.${system}.nix2container;
+          });
       in {
         phpweb-composer = pkgs.api.buildComposerProject rec {
           pname = "phpweb";
@@ -107,10 +112,10 @@
           '';
         };
         phpweb-image = pkgs.nix-snapshotter.buildImage {
+        # phpweb-image = pkgs.nix2c.buildImage {
           name = "docteurklein/phpweb";
           resolvedByNix = true;
           config = {
-            # StopSignal = "SIGWINCH"; # @TODO: use nixng sigell?
             # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.services.phpfpm.pools.main.phpPackage}/bin/php-fpm" ];
             # Entrypoint = [ "${self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel}/init" ];
             Entrypoint = [ "/bin/sh" ];
@@ -120,29 +125,45 @@
               "9000/tcp" = {};
             };
           };
+          # copyToRoot = self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel;
           copyToRoot = pkgs.buildEnv {
             name = "root";
-            paths = with pkgs; [
-              bashInteractive
+            paths = with pkgs; let 
+              user = "phpweb";
+              uid = 999;
+              gid = 999;
+            in [
+              (writeTextDir "etc/shadow" ''
+                root:!x:::::::
+                ${user}:!:::::::
+              '')
+              (writeTextDir "etc/passwd" ''
+                root:x:0:0::/root:/bin/sh
+                ${user}:x:${toString uid}:${toString gid}::/home/${user}:
+              '')
+              (writeTextDir "etc/group" ''
+                root:x:0:
+                ${user}:x:${toString gid}:
+              '')
+              (writeTextDir "etc/gshadow" ''
+                root:x::
+                ${user}:x::
+              '')
               coreutils
               procps
+              bashInteractive
               self.nixosConfigurations.${system}.phpweb.config.system.build.toplevel
-              # self.packages.${system}.phpweb-composer
+              self.nixosConfigurations.${system}.phpweb.config.system.build.etc
+              # self.packages.${system}.phpweb-composer.php
             ];
-            pathsToLink = [ "/bin" ];
+            pathsToLink = [ "/bin" "/etc" ];
           };
-          # layers = [
-          #   (pkgs.nix2c.buildLayer {
-          #     deps = [pkgs.bashInteractive];
-          #   })
-          # ];
           # maxLayers = 125;
         };
 
         kube-manifest = self.kubenix.${system}.kube-manifest.result;
 
         terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.ast.config;
-
       }
     );
     terranix = nixpkgs.lib.genAttrs systems (system: {
@@ -172,28 +193,35 @@
           kubernetes.resources.deployments.s1.spec.template.spec = {
             # containers."s1-nginx" = {
             #   command = lib.strings.splitString " " self.nixosConfigurations.${system}.phpweb.config.systemd.services.nginx.serviceConfig.ExecStart;
-            #   # args = [ "-c" self.nixosConfigurations.${system}.phpweb.config.systemd.services.nginx.serviceConfig.ExecStart ];
             # };
             containers."s1-fpm" = {
-              # command = ["/bin/sh"];
+              # command = ["/bin/sh" "-c" "sleep inf"];
               command = lib.strings.splitString " " self.nixosConfigurations.${system}.phpweb.config.systemd.services.phpfpm-main.serviceConfig.ExecStart;
-              # args = [ "-c" "sleep 1000" ]; # self.nixosConfigurations.${system}.phpweb.config.systemd.services.phpfpm-main.serviceConfig.ExecStart ];
-              # volumeMounts = [
-              #   {
-              #     name = "src";
-              #     mountPath = "/nix/store/jlkbg3wc34hw9wb27jy1vb0xqv8ann88-phpweb-1.0.1-dev/share/php/phpweb";
-              #   }
-              # ];
+              volumeMounts = [
+                {
+                  name = "tmp";
+                  mountPath = "/tmp";
+                }
+                {
+                  name = "run";
+                  mountPath = "/run/phpfpm";
+                }
+              ];
             };
-            # volumes = [
-            #   {
-            #     name = "src";
-            #     hostPath = {
-            #       path = "/home/florian/work/docteurklein/kubenix-test/php";
-            #       type = "Directory";
-            #     };
-            #   }
-            # ];
+            volumes = [
+              {
+                name = "tmp";
+                emptyDir = {
+                  sizeLimit = "500Mi";
+                };
+              }
+              {
+                name = "run";
+                emptyDir = {
+                  sizeLimit = "500Mi";
+                };
+              }
+            ];
           };
 
           # namespace = tfoutput.prefix.value;
@@ -203,7 +231,6 @@
           # docker = {
           #   registry.url = "docker.io";
           #   images.s1.image = self.packages.${system}.phpweb-image;
-          #   images.w1.image = self.packages.${system}.phpweb-image;
           # };
 
           # kubenix.project = "test1";

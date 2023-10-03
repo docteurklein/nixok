@@ -70,6 +70,7 @@
             #   imagePullPolicy = "IfNotPresent";
             # };
             containers."${name}-fpm" = {
+              # image = config.docker.images.${name}.path;
               image = m.image.image;
               imagePullPolicy = "IfNotPresent";
             };
