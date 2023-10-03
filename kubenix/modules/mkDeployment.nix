@@ -64,7 +64,11 @@
             namespace = mkIf (!isNull ns) ns;
           };
           spec = {
-            securityContext.fsGroup = 1000;
+            securityContext = {
+              runAsUser = 999;
+              runAsGroup = 999;
+              fsGroup = 999;
+            };
             containers."${name}-nginx" = {
               # image = m.image.image;
               image = config.docker.images.${name}.path;

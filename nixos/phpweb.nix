@@ -10,13 +10,22 @@
 
   config.services.nginx = {
     enable = true;
+    defaultHTTPListenPort = 8080;
+    user = config.name;
+    group = config.name;
     virtualHosts.${config.name}.locations."/" = {
       root = "${config.package}/share/php/${config.name}/public";
       extraConfig = ''
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass localhost:9000;
-        include ${pkgs.nginx}/conf/fastcgi_params;
-        include ${pkgs.nginx}/conf/fastcgi.conf;
+        location / {
+          try_files $uri $uri/ /index.php$is_args$args;
+        }
+
+        location ~ \.php$ {
+          fastcgi_split_path_info ^(.+\.php)(/.+)$;
+          fastcgi_pass localhost:9000;
+          include ${pkgs.nginx}/conf/fastcgi_params;
+          include ${pkgs.nginx}/conf/fastcgi.conf;
+        }
       '';
      };
   };

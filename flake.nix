@@ -122,7 +122,7 @@
             Entrypoint = [ "${pkgs.dumb-init}/bin/dumb-init" "--" ];
 
             ExposedPorts = {
-              "80/tcp" = {};
+              "8080/tcp" = {};
               "9000/tcp" = {};
             };
           };
@@ -135,6 +135,7 @@
             in [
               (writeTextDir "etc/shadow" ''
                 root:!x:::::::
+                nobody:!x:::::::
                 ${user}:!:::::::
               '')
               (writeTextDir "etc/passwd" ''
@@ -199,7 +200,10 @@
               );
               volumeMounts = [
                 { name = "var"; mountPath = "/var/log/nginx"; }
-                { name = "tmp"; mountPath = "/tmp/nginx_client_body"; subPath = "nginx"; }
+                { name = "tmp"; mountPath = "/tmp/nginx_client_body"; subPath = "nginx_client_body"; }
+                { name = "tmp"; mountPath = "/tmp/nginx_proxy"; subPath = "nginx_proxy"; }
+                { name = "tmp"; mountPath = "/tmp/nginx_fastcgi"; subPath = "nginx_fastcgi"; }
+                { name = "tmp"; mountPath = "/tmp"; subPath = "nginx"; }
                 { name = "run"; mountPath = "/run/nginx"; subPath = "nginx"; }
               ];
             };

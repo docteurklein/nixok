@@ -7,7 +7,7 @@
   config = {
     services.s1 = {
       ports = [
-        { name = "http"; port = 80; }
+        { name = "http"; port = 8080; }
       ];
       image = self.phpweb-image;
     };
