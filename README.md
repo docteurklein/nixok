@@ -32,3 +32,5 @@ kubectl apply -f $(nix build --no-link --print-out-paths .#kube-manifest)
     docker run --rm --name phpweb -p 8080:80  docteurklein/phpweb:$tag
 
     nix run .#phpweb-composer.php.packages.composer -- require …
+
+    nix run .#nix-unit -- --flake .#libTests

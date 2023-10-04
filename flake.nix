@@ -19,8 +19,12 @@
     url = "github:pdtpartners/nix-snapshotter";
     inputs.nixpkgs.follows = "nixpkgs";
   };
+  inputs.nix-unit = {
+    url = "github:adisbladis/nix-unit"; 
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, kubenix, nix-snapshotter, nix2container, ... }:
+  outputs = inputs@{self, nixpkgs, terranix, phpComposerBuilder, kubenix, nix-snapshotter, nix2container, nix-unit, ... }:
     let
       systems = [ "x86_64-linux" ];
       tfoutput = builtins.fromJSON (builtins.readFile ./tfoutput.json); # @TODO Import-From-Derivation?
@@ -98,6 +102,7 @@
             nix2c = nix2container.packages.${system}.nix2container;
           });
       in {
+        nix-unit = nix-unit.packages.${system}.default;
         phpweb-composer = pkgs.api.buildComposerProject rec {
           pname = "phpweb";
           version = "1.0.1-dev";
@@ -263,5 +268,11 @@
         };
       }
     );
+    libTests = {
+      testPass = {
+        expr = 1;
+        expected = 1;
+      };
+    };
   };
 }
