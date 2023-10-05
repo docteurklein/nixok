@@ -2,53 +2,25 @@
   imports = [ kubenix.modules.k8s ];
 
   options = with types; {
-    namespace = mkOption {
-      type = nullOr str;
-      default = null;
-    };
-    workers = mkOption {
-      type = attrsOf (submodule {
-        options = {
-          name = mkOption {
-            type = str;
-          };
-          namespace = mkOption {
-            type = nullOr str;
-            default = null;
-          };
-          subscription = mkOption {
-            type = str;
-          };
-        };
-      });
-    };
     services = mkOption {
       type = attrsOf (submodule {
         options = {
-          name = mkOption {
-            type = str;
-          };
+          enable = options.mkEnableOption "kubernetes manifests";
           image = mkOption {
             type = package;
-          };
-          namespace = mkOption {
-            type = nullOr str;
-            default = null;
           };
           ports = mkOption {
             type = listOf attrs;
             default = [];
           };
+          env = mkOption {};
         };
       });
     };
   };
   
   config = {
-    kubernetes.resources.deployments = builtins.mapAttrs (name: m:
-    let ns = config.namespace or m.namespace;
-    in {
-      metadata.namespace = mkIf (!isNull ns) ns;
+    kubernetes.resources.deployments = builtins.mapAttrs (name: m: {
       spec = {
         replicas = 1;
         selector.matchLabels.app = name;
@@ -61,9 +33,15 @@
               "profiles.grafana.com/memory.scrape" = "true";
             };
             labels.app = name;
-            namespace = mkIf (!isNull ns) ns;
           };
           spec = {
+            dnsPolicy = "ClusterFirst";
+            dnsConfig = {
+              options = [{
+                name = "ndots";
+                value = "1";
+              }];
+            };
             securityContext = {
               runAsUser = 999;
               runAsGroup = 999;
@@ -78,16 +56,14 @@
               image = config.docker.images.${name}.path;
               # image = m.image.image;
               imagePullPolicy = "IfNotPresent";
+              env = m.env;
             };
           };
         };
       };
-    }) (config.services); # // config.workers);
+    }) config.services;
 
-    kubernetes.resources.services = builtins.mapAttrs (name: m:
-    let ns = config.namespace or m.namespace;
-    in {
-      metadata.namespace = mkIf (!isNull ns) ns;
+    kubernetes.resources.services = builtins.mapAttrs (name: m: {
       spec = {
         selector.app = name;
         ports = mkIf (length m.ports != 0) m.ports;

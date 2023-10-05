@@ -1,9 +1,10 @@
 { config, lib, ... }: with lib; {
 
   options = with types; {
-    workers = mkOption {
+    services = mkOption {
       type = attrsOf (submodule {
         options = {
+          enable = options.mkEnableOption "terraform resources";
           subscription = mkOption {
             type = str;
           };
@@ -20,7 +21,7 @@
       triggers = {
         prefix = lib.tfRef "var.prefix";
       };
-    }) config.workers;
+    }) config.services;
 
     variable.prefix = {
       type = "string";
@@ -28,7 +29,7 @@
 
     output = (builtins.mapAttrs (name: m: {
       value = lib.tfRef "resource.null_resource.${name}";
-    }) config.workers) // {
+    }) config.services) // {
       prefix = { value = lib.tfRef "var.prefix"; };
     };
   };

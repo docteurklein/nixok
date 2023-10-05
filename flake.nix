@@ -35,11 +35,10 @@
       in (pkgs.lib.evalModules {
         specialArgs = {
           inherit tfoutput;
-          self = self.packages.${system};
+          pkgs' = self.packages.${system};
         };
         modules = [
           ./stack/modules/services.nix
-          ./stack/modules/workers.nix
         ];
       }).config
     );
@@ -110,6 +109,13 @@
           src = ./php;
           php = pkgs.api.buildPhpFromComposer {
             inherit src;
+            extraConfig = ''
+              memory_limt = 64M;
+              opcache.enable_cli=1;
+              opcache.jit=function;
+              opcache.jit_buffer_size=64M;
+              opcache.jit_debug=0x30;
+            '';
           };
           postBuild = ''
             mkdir -p $out/etc
@@ -179,8 +185,12 @@
         inherit system;
         modules = [
           ./terranix/config.nix
-          ({config, ...}: {
-            workers = self.stack.${system}.workers;
+          ({config, lib, ...}: {
+            # services = self.stack.${system}.services;
+            services = lib.trivial.pipe self.stack.${system}.services [
+              (lib.attrsets.filterAttrs (name: m: m.terraform.enable))
+              (builtins.mapAttrs (name: m: m.terraform))
+            ];
           })
         ];
       };
@@ -196,6 +206,14 @@
             kubenix.modules.docker
             ./kubenix/modules/tfoutput.nix
             ./kubenix/modules/mkDeployment.nix
+          ];
+          # kubenix.project = "test1";
+          # kubernetes.version = "1.27";
+          # namespace = tfoutput.prefix.value;
+
+          services = lib.trivial.pipe self.stack.${system}.services [
+            (lib.attrsets.filterAttrs (name: m: m.kube.enable))
+            (builtins.mapAttrs (name: m: m.kube))
           ];
 
           kubernetes.resources.deployments.s1.spec.template.spec = {
@@ -228,18 +246,10 @@
               { name = "var"; emptyDir = { sizeLimit = "500Mi"; }; }
             ];
           };
-
-          # namespace = tfoutput.prefix.value;
-          services = self.stack.${system}.services;
-          # workers = self.stack.${system}.workers;
-
           docker = {
             registry.url = "docker.io";
             images.s1.image = self.packages.${system}.phpweb-image;
           };
-
-          # kubenix.project = "test1";
-          # kubernetes.version = "1.27";
         };
       }).config.kubernetes;
     });

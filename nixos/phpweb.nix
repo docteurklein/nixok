@@ -31,13 +31,6 @@
   };
 
   config.services.phpfpm = {
-    phpOptions = ''
-      memory_limt = 64M;
-      opcache.enable_cli=1;
-      opcache.jit=function;
-      opcache.jit_buffer_size=64M;
-      opcache.jit_debug=0x30;
-    '';
     pools = {
       main = {
         listen = "127.0.0.1:9000";

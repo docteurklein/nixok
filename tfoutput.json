@@ -2,9 +2,9 @@
   "prefix": {
     "sensitive": false,
     "type": "string",
-    "value": "test"
+    "value": "test1"
   },
-  "w1": {
+  "s1": {
     "sensitive": false,
     "type": [
       "object",
@@ -17,13 +17,13 @@
       }
     ],
     "value": {
-      "id": "3100870327927236094",
+      "id": "228120986767225582",
       "triggers": {
-        "prefix": "test"
+        "prefix": "test1"
       }
     }
   },
-  "w2": {
+  "s2": {
     "sensitive": false,
     "type": [
       "object",
@@ -36,28 +36,9 @@
       }
     ],
     "value": {
-      "id": "1993107489894745527",
+      "id": "6677774632950387694",
       "triggers": {
-        "prefix": "test"
-      }
-    }
-  },
-  "w3": {
-    "sensitive": false,
-    "type": [
-      "object",
-      {
-        "id": "string",
-        "triggers": [
-          "map",
-          "string"
-        ]
-      }
-    ],
-    "value": {
-      "id": "8206195849451941817",
-      "triggers": {
-        "prefix": "test"
+        "prefix": "test1"
       }
     }
   }
