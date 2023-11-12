@@ -23,6 +23,7 @@
   };
 
   config = {
+
     services.s1 = rec {
       kube = {
         enable = true;
@@ -42,11 +43,32 @@
       projects.dev.regions = ["eu-west1"];
       projects.prod.regions = ["eu-west1" "us-east1"];
     };
-    services.s2 = {
-      kube.enable = false;
+
+    services.s2 = rec {
+      kube = {
+        enable = true;
+        ports = [
+          { name = "http"; port = 8080; }
+        ];
+        image = pkgs'.phpweb-image;
+        env = [{
+          name = "subscription";
+          value = terraform.subscription;
+        }];
+      };
       terraform = {
         enable = true;
         subscription = tfoutput.s1.value.id;
+      };
+      # projects.dev.regions = ["eu-west1"];
+      projects.prod.regions = ["eu-west1" "us-east1"];
+    };
+
+    services.w1 = {
+      kube.enable = false;
+      terraform = {
+        enable = true;
+        subscription = tfoutput.w1.value.id;
       };
       projects.dev.regions = ["eu-west1"];
       projects.prod.regions = ["eu-west1" "us-east1"];

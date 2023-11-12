@@ -14,6 +14,10 @@
   };
 
   config = {
+    variable.prefix = {
+      type = "string";
+    };
+
     resource.null_resource = builtins.mapAttrs (name: m: {
       provisioner."local-exec" = {
         command = "echo \${var.prefix}-${name}";
@@ -22,10 +26,6 @@
         prefix = lib.tfRef "var.prefix";
       };
     }) config.services;
-
-    variable.prefix = {
-      type = "string";
-    };
 
     output = (builtins.mapAttrs (name: m: {
       value = lib.tfRef "resource.null_resource.${name}";

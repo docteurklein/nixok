@@ -31,16 +31,27 @@
     in {
     stack = nixpkgs.lib.genAttrs systems (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in (pkgs.lib.evalModules {
-        specialArgs = {
-          inherit tfoutput;
-          pkgs' = self.packages.${system};
-        };
-        modules = [
-          ./stack/modules/services.nix
-        ];
-      }).config
+        project = builtins.getEnv("PROJECT");
+        region = builtins.getEnv("REGION");
+        evaluated = (nixpkgs.lib.evalModules {
+          specialArgs = {
+            inherit tfoutput;
+            pkgs' = self.packages.${system};
+          };
+          modules = [
+            ./stack/modules/services.nix
+            ({...}: {
+              # project = builtins.getEnv("PROJECT");
+              # region = builtins.getEnv("REGION");
+            })
+          ];
+        }).config;
+      in evaluated // {
+          services = nixpkgs.lib.attrsets.filterAttrs (name: m: (
+            builtins.elem project (builtins.attrNames m.projects)  # in project?
+            && builtins.elem region m.projects.${project}.regions) # in project's region?
+          ) evaluated.services;
+        }
     );
     nixosModules = nixpkgs.lib.genAttrs systems (system: {
       phpweb = ({config, modulesPath, lib, ...}: {
@@ -101,7 +112,9 @@
             nix2c = nix2container.packages.${system}.nix2container;
           });
       in {
+
         nix-unit = nix-unit.packages.${system}.default;
+
         phpweb-composer = pkgs.api.buildComposerProject rec {
           pname = "phpweb";
           version = "1.0.1-dev";
@@ -122,6 +135,7 @@
             touch $out/etc/php.ini
           '';
         };
+
         # phpweb-image = pkgs.nix-snapshotter.buildImage {
         phpweb-image = pkgs.nix2c.buildImage {
           name = "docteurklein/phpweb";
@@ -180,13 +194,13 @@
         terraform-config = (pkgs.formats.json { }).generate "config.tf.json" self.terranix.${system}.ast.config;
       }
     );
+
     terranix = nixpkgs.lib.genAttrs systems (system: {
       ast = terranix.lib.terranixConfigurationAst {
         inherit system;
         modules = [
           ./terranix/config.nix
           ({config, lib, ...}: {
-            # services = self.stack.${system}.services;
             services = lib.trivial.pipe self.stack.${system}.services [
               (lib.attrsets.filterAttrs (name: m: m.terraform.enable))
               (builtins.mapAttrs (name: m: m.terraform))
@@ -195,6 +209,7 @@
         ];
       };
     });
+
     kubenix = nixpkgs.lib.genAttrs systems (system: {
       kube-manifest = (kubenix.evalModules.${system} {
         specialArgs = {
@@ -231,7 +246,6 @@
               ];
             };
             containers."s1-fpm" = {
-              # command = ["/bin/sh" "-c" "while true; do echo '.'; sleep 1; done"];
               command = lib.strings.splitString " "
                 self.nixosConfigurations.${system}.phpweb.config.systemd.services.phpfpm-main.serviceConfig.ExecStart
               ;
@@ -249,10 +263,12 @@
           docker = {
             registry.url = "docker.io";
             images.s1.image = self.packages.${system}.phpweb-image;
+            images.s2.image = self.packages.${system}.phpweb-image;
           };
         };
       }).config.kubernetes;
     });
+
     apps = nixpkgs.lib.genAttrs systems (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -269,6 +285,7 @@
         };
       }
     );
+
     devShells = nixpkgs.lib.genAttrs systems (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -278,6 +295,7 @@
         };
       }
     );
+
     libTests = {
       testPass = {
         expr = 1;
